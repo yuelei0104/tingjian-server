@@ -1,12 +1,11 @@
 package com.tingjian.server.controller;
 
 import com.tingjian.server.common.ApiResponse;
-import com.tingjian.server.common.DevUser;
+import com.tingjian.server.common.CurrentUserId;
 import com.tingjian.server.dto.GlossaryResponse;
 import com.tingjian.server.dto.GlossaryUpsertRequest;
 import com.tingjian.server.service.GlossaryService;
 import jakarta.validation.Valid;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,8 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@Profile("dev")
-@RequestMapping("/api/dev/glossary")
+@RequestMapping("/api/v1/glossary")
 public class GlossaryController {
     private final GlossaryService glossaryService;
 
@@ -31,25 +29,28 @@ public class GlossaryController {
     }
 
     @GetMapping
-    public ApiResponse<List<GlossaryResponse>> list() {
-        return ApiResponse.success(glossaryService.list(DevUser.OWNER_ID));
+    public ApiResponse<List<GlossaryResponse>> list(@CurrentUserId String userId) {
+        return ApiResponse.success(glossaryService.list(userId));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<GlossaryResponse> create(@Valid @RequestBody GlossaryUpsertRequest request) {
-        return ApiResponse.success(glossaryService.create(DevUser.OWNER_ID, request));
+    public ApiResponse<GlossaryResponse> create(
+            @CurrentUserId String userId, @Valid @RequestBody GlossaryUpsertRequest request) {
+        return ApiResponse.success(glossaryService.create(userId, request));
     }
 
     @PutMapping("/{id}")
     public ApiResponse<GlossaryResponse> update(
-            @PathVariable String id, @Valid @RequestBody GlossaryUpsertRequest request) {
-        return ApiResponse.success(glossaryService.update(DevUser.OWNER_ID, id, request));
+            @CurrentUserId String userId,
+            @PathVariable String id,
+            @Valid @RequestBody GlossaryUpsertRequest request) {
+        return ApiResponse.success(glossaryService.update(userId, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> delete(@PathVariable String id) {
-        glossaryService.delete(DevUser.OWNER_ID, id);
+    public ApiResponse<Void> delete(@CurrentUserId String userId, @PathVariable String id) {
+        glossaryService.delete(userId, id);
         return ApiResponse.success(null);
     }
 }

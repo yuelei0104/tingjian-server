@@ -1,14 +1,13 @@
 package com.tingjian.server.controller;
 
 import com.tingjian.server.common.ApiResponse;
-import com.tingjian.server.common.DevUser;
+import com.tingjian.server.common.CurrentUserId;
 import com.tingjian.server.dto.HistoryListResponse;
 import com.tingjian.server.dto.SessionDetailResponse;
 import com.tingjian.server.service.HistoryService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
-import org.springframework.context.annotation.Profile;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,8 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Validated
 @RestController
-@Profile("dev")
-@RequestMapping("/api/dev/history")
+@RequestMapping("/api/v1/history")
 public class HistoryController {
     private final HistoryService historyService;
 
@@ -30,20 +28,22 @@ public class HistoryController {
 
     @GetMapping
     public ApiResponse<HistoryListResponse> search(
+            @CurrentUserId String userId,
             @RequestParam(defaultValue = "") @Size(max = 100) String keyword,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
-        return ApiResponse.success(historyService.search(DevUser.OWNER_ID, keyword, page, size));
+        return ApiResponse.success(historyService.search(userId, keyword, page, size));
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<SessionDetailResponse> detail(@PathVariable String id) {
-        return ApiResponse.success(historyService.detail(DevUser.OWNER_ID, id));
+    public ApiResponse<SessionDetailResponse> detail(
+            @CurrentUserId String userId, @PathVariable String id) {
+        return ApiResponse.success(historyService.detail(userId, id));
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> delete(@PathVariable String id) {
-        historyService.delete(DevUser.OWNER_ID, id);
+    public ApiResponse<Void> delete(@CurrentUserId String userId, @PathVariable String id) {
+        historyService.delete(userId, id);
         return ApiResponse.success(null);
     }
 }

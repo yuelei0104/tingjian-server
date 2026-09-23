@@ -42,6 +42,15 @@ public class AuthSessionDao {
                 """, this::mapRow, refreshTokenHash, now).stream().findFirst();
     }
 
+    public Optional<String> findActiveUserIdByAccessToken(
+            String accessTokenHash, LocalDateTime now) {
+        return jdbc.query("""
+                SELECT user_id FROM auth_session
+                WHERE access_token_hash=? AND revoked_at IS NULL AND access_expires_at>?
+                """, (rs, row) -> rs.getString("user_id"), accessTokenHash, now)
+                .stream().findFirst();
+    }
+
     public int rotate(AuthSessionEntity entity) {
         return jdbc.update("""
                 UPDATE auth_session
