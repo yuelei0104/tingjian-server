@@ -18,3 +18,44 @@ CREATE TABLE IF NOT EXISTS conversation_message (
     CONSTRAINT fk_message_conversation FOREIGN KEY (conversation_id)
         REFERENCES conversation (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS keyword_rule (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    owner_id VARCHAR(64) NOT NULL,
+    phrase VARCHAR(100) NOT NULL,
+    vibration_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    priority INT NOT NULL DEFAULT 50,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_keyword_owner_phrase (owner_id, phrase),
+    KEY idx_keyword_owner_priority (owner_id, priority, updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS glossary_term (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    owner_id VARCHAR(64) NOT NULL,
+    term VARCHAR(100) NOT NULL,
+    alias VARCHAR(100) NULL,
+    language VARCHAR(16) NOT NULL,
+    category VARCHAR(40) NOT NULL,
+    priority INT NOT NULL DEFAULT 50,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_glossary_owner_term_language (owner_id, term, language),
+    KEY idx_glossary_owner_priority (owner_id, priority, term)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS quick_phrase (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    owner_id VARCHAR(64) NOT NULL,
+    content VARCHAR(500) NOT NULL,
+    category VARCHAR(40) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_quick_phrase_owner_content (owner_id, content),
+    KEY idx_quick_phrase_owner_sort (owner_id, sort_order, updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

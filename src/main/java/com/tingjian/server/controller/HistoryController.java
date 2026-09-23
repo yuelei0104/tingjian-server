@@ -1,6 +1,7 @@
 package com.tingjian.server.controller;
 
 import com.tingjian.server.common.ApiResponse;
+import com.tingjian.server.common.DevUser;
 import com.tingjian.server.dto.HistoryListResponse;
 import com.tingjian.server.dto.SessionDetailResponse;
 import com.tingjian.server.service.HistoryService;
@@ -21,8 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 @Profile("dev")
 @RequestMapping("/api/dev/history")
 public class HistoryController {
-    private static final String DEV_OWNER = "local-demo";
-
     private final HistoryService historyService;
 
     public HistoryController(HistoryService historyService) {
@@ -34,17 +33,17 @@ public class HistoryController {
             @RequestParam(defaultValue = "") @Size(max = 100) String keyword,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
-        return ApiResponse.success(historyService.search(DEV_OWNER, keyword, page, size));
+        return ApiResponse.success(historyService.search(DevUser.OWNER_ID, keyword, page, size));
     }
 
     @GetMapping("/{id}")
     public ApiResponse<SessionDetailResponse> detail(@PathVariable String id) {
-        return ApiResponse.success(historyService.detail(DEV_OWNER, id));
+        return ApiResponse.success(historyService.detail(DevUser.OWNER_ID, id));
     }
 
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable String id) {
-        historyService.delete(DEV_OWNER, id);
+        historyService.delete(DevUser.OWNER_ID, id);
         return ApiResponse.success(null);
     }
 }
