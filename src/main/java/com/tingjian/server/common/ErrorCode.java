@@ -11,6 +11,9 @@ public enum ErrorCode {
     GLOSSARY_NOT_FOUND(HttpStatus.NOT_FOUND, "术语不存在"),
     QUICK_PHRASE_NOT_FOUND(HttpStatus.NOT_FOUND, "常用语不存在"),
     DUPLICATE_RESOURCE(HttpStatus.CONFLICT, "数据已存在"),
+    EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "邮箱已注册"),
+    AUTH_INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "邮箱或密码错误"),
+    AUTH_INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "登录凭证无效或已过期"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "服务器内部错误");
 
     private final HttpStatus status;

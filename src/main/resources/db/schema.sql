@@ -59,3 +59,31 @@ CREATE TABLE IF NOT EXISTS quick_phrase (
     UNIQUE KEY uq_quick_phrase_owner_content (owner_id, content),
     KEY idx_quick_phrase_owner_sort (owner_id, sort_order, updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS app_user (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    email VARCHAR(254) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    display_name VARCHAR(40) NOT NULL,
+    status VARCHAR(16) NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_user_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auth_session (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    access_token_hash CHAR(64) NOT NULL,
+    refresh_token_hash CHAR(64) NOT NULL,
+    access_expires_at DATETIME(3) NOT NULL,
+    refresh_expires_at DATETIME(3) NOT NULL,
+    revoked_at DATETIME(3) NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_auth_access_token (access_token_hash),
+    UNIQUE KEY uq_auth_refresh_token (refresh_token_hash),
+    KEY idx_auth_user_active (user_id, revoked_at, refresh_expires_at),
+    CONSTRAINT fk_auth_session_user FOREIGN KEY (user_id)
+        REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
