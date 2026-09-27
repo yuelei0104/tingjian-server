@@ -21,6 +21,9 @@ exit
 
 IDEA Maven 面板运行 `test` 可执行单元测试和 Spring Boot 上下文测试；测试使用内存 H2，不依赖本机 MySQL。也可以在命令窗口运行 `mvnw.cmd test`。
 
+登录后的客户端设置使用 `GET /api/v1/preferences` 读取，使用
+`PUT /api/v1/preferences` 整体更新。首次读取返回 `configured=false`，客户端可将本机设置作为初始值上传。
+
 ## 手动调用（Windows CMD）
 
 以下命令逐条执行。创建会话后，从统一响应的 `data.id` 复制会话 ID，把后续命令里的 `你的会话ID` 替换成它。所有时间字段按 UTC 存储和返回。
@@ -39,4 +42,19 @@ curl.exe -X DELETE http://127.0.0.1:8080/api/dev/history/你的会话ID
 
 所有接口使用 `{requestId, code, message, data, timestamp}` 统一响应。列表支持 `?page=0&size=20`（每页最大 50）；历史接口还支持用 `keyword` 搜索标题和对话内容。消息角色 `OTHER` 表示对方，`SELF` 表示我。结束后重复结束仍会返回会话；结束后追加消息返回 HTTP 409，不存在的会话返回 HTTP 404。标题最多 80 字符，单条文本最多 2000 字符。
 
-这一阶段保存的是**手动写入的文本消息**；实时语音识别、TTS、关键词高亮、正式用户登录与账号隔离将在后续开发。正式对外提供服务前必须把本地演示账号换成登录身份，并完成数据迁移和鉴权。
+## 关键词、术语库和常用语
+
+以下三个资源均支持 `GET` 列表、`POST` 新增、`PUT /{id}` 修改和 `DELETE /{id}` 删除。新增后从响应的 `data.id` 获取资源 ID。
+
+```bat
+curl.exe -X POST http://127.0.0.1:8080/api/dev/keywords -H "Content-Type: application/json" -d "{\"phrase\":\"老师\",\"vibrationEnabled\":true,\"priority\":80,\"enabled\":true}"
+curl.exe http://127.0.0.1:8080/api/dev/keywords
+
+curl.exe -X POST http://127.0.0.1:8080/api/dev/glossary -H "Content-Type: application/json" -d "{\"term\":\"人工智能\",\"alias\":\"AI\",\"language\":\"zh-CN\",\"category\":\"课堂\",\"priority\":90,\"enabled\":true}"
+curl.exe http://127.0.0.1:8080/api/dev/glossary
+
+curl.exe -X POST http://127.0.0.1:8080/api/dev/quick-phrases -H "Content-Type: application/json" -d "{\"content\":\"请再说一次\",\"category\":\"日常\",\"sortOrder\":10,\"enabled\":true}"
+curl.exe http://127.0.0.1:8080/api/dev/quick-phrases
+```
+
+这一阶段会保存手动写入的文本消息、关键词、术语和常用语；实时语音识别、TTS、会话中的实时关键词匹配、正式用户登录与账号隔离将在后续开发。正式对外提供服务前必须把本地演示账号换成登录身份，并完成数据迁移和鉴权。

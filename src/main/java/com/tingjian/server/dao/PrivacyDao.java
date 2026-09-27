@@ -33,4 +33,8 @@ public class PrivacyDao {
     public int deleteQuickPhrases(String ownerId) {
         return jdbc.update("DELETE FROM quick_phrase WHERE owner_id=?", ownerId);
     }
+
+    public int deleteUserPreference(String ownerId) {
+        return jdbc.update("DELETE FROM user_preference WHERE owner_id=?", ownerId);
+    }
 }

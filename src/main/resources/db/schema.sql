@@ -87,3 +87,18 @@ CREATE TABLE IF NOT EXISTS auth_session (
     CONSTRAINT fk_auth_session_user FOREIGN KEY (user_id)
         REFERENCES app_user (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_preference (
+    owner_id CHAR(36) NOT NULL PRIMARY KEY,
+    large_text BOOLEAN NOT NULL DEFAULT FALSE,
+    voice_mode VARCHAR(16) NOT NULL DEFAULT '自动',
+    voice_style VARCHAR(16) NOT NULL DEFAULT '自然',
+    tts_speed DECIMAL(3,2) NOT NULL DEFAULT 1.00,
+    recognition_language VARCHAR(16) NOT NULL DEFAULT '中英混合',
+    keyword_vibration BOOLEAN NOT NULL DEFAULT TRUE,
+    keyword_highlight BOOLEAN NOT NULL DEFAULT TRUE,
+    auto_summary BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_at DATETIME(3) NOT NULL,
+    CONSTRAINT fk_preference_user FOREIGN KEY (owner_id)
+        REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

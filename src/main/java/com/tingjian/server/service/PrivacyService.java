@@ -35,6 +35,7 @@ public class PrivacyService {
         int keywords = privacyDao.deleteKeywords(ownerId);
         int glossaryTerms = privacyDao.deleteGlossaryTerms(ownerId);
         int quickPhrases = privacyDao.deleteQuickPhrases(ownerId);
+        privacyDao.deleteUserPreference(ownerId);
         return new PrivacyDeleteResponse(
                 conversations, messages, keywords, glossaryTerms, quickPhrases);
     }
