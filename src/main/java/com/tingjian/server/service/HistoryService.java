@@ -1,7 +1,5 @@
 package com.tingjian.server.service;
 
-import com.tingjian.server.common.BusinessException;
-import com.tingjian.server.common.ErrorCode;
 import com.tingjian.server.dao.HistoryDao;
 import com.tingjian.server.dto.HistoryItemResponse;
 import com.tingjian.server.dto.HistoryListResponse;
@@ -38,7 +36,8 @@ public class HistoryService {
     @Transactional
     public void delete(String ownerId, String id) {
         if (!historyDao.existsForUpdate(id, ownerId)) {
-            throw new BusinessException(ErrorCode.SESSION_NOT_FOUND);
+            // DELETE 保持幂等：响应丢失后客户端可以安全重试，也不暴露其他账号的数据。
+            return;
         }
         historyDao.deleteMessages(id);
         historyDao.deleteConversation(id, ownerId);

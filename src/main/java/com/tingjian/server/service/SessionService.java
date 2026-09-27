@@ -44,6 +44,13 @@ public class SessionService {
                 .toList();
     }
 
+    public SessionResponse rename(String ownerId, String id, String title) {
+        if (sessionDao.rename(id, ownerId, title.strip()) == 0) {
+            throw new BusinessException(ErrorCode.SESSION_NOT_FOUND);
+        }
+        return get(ownerId, id);
+    }
+
     public List<SessionMessageResponse> messages(String ownerId, String sessionId) {
         get(ownerId, sessionId);
         return sessionDao.messages(sessionId).stream()

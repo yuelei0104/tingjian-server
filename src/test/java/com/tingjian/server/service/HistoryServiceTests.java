@@ -1,6 +1,5 @@
 package com.tingjian.server.service;
 
-import com.tingjian.server.common.BusinessException;
 import com.tingjian.server.dao.HistoryDao;
 import com.tingjian.server.entity.HistorySummaryEntity;
 import org.junit.jupiter.api.Test;
@@ -9,7 +8,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -35,10 +33,10 @@ class HistoryServiceTests {
     }
 
     @Test
-    void deleteRejectsAnotherOwnersConversation() {
+    void deleteMissingConversationIsIdempotent() {
         when(historyDao.existsForUpdate("id", "owner")).thenReturn(false);
 
-        assertThrows(BusinessException.class, () -> service.delete("owner", "id"));
+        service.delete("owner", "id");
 
         verify(historyDao, never()).deleteMessages("id");
         verify(historyDao, never()).deleteConversation("id", "owner");

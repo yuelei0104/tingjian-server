@@ -51,4 +51,27 @@ class SessionServiceTests {
 
         assertEquals("ENDED", service.end("local-demo", "id").status());
     }
+
+    @Test
+    void renameTrimsTitleAndReturnsUpdatedSession() {
+        ConversationEntity renamed = new ConversationEntity(
+                "id", "owner", "课堂笔记", "ENDED", null, null);
+        when(sessionDao.rename("id", "owner", "课堂笔记")).thenReturn(1);
+        when(sessionDao.find("id", "owner")).thenReturn(Optional.of(renamed));
+
+        var response = service.rename("owner", "id", "  课堂笔记  ");
+
+        assertEquals("课堂笔记", response.title());
+        verify(sessionDao).rename("id", "owner", "课堂笔记");
+    }
+
+    @Test
+    void renameRejectsAnotherOwnersSession() {
+        when(sessionDao.rename("id", "owner", "新标题")).thenReturn(0);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.rename("owner", "id", "新标题"));
+
+        assertEquals(404, error.errorCode().status().value());
+    }
 }

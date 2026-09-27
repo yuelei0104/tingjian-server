@@ -54,6 +54,11 @@ public class SessionDao {
                 + "WHERE id=? AND owner_id=? AND status='ACTIVE'", endedAt, id, ownerId);
     }
 
+    public int rename(String id, String ownerId, String title) {
+        return jdbc.update("UPDATE conversation SET title=? WHERE id=? AND owner_id=?",
+                title, id, ownerId);
+    }
+
     public Optional<String> lockStatus(String id, String ownerId) {
         return jdbc.query("SELECT status FROM conversation WHERE id=? AND owner_id=? FOR UPDATE",
                 (rs, row) -> rs.getString(1), id, ownerId).stream().findFirst();

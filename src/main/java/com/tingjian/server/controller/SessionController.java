@@ -6,6 +6,7 @@ import com.tingjian.server.dto.SessionCreateRequest;
 import com.tingjian.server.dto.SessionDetailResponse;
 import com.tingjian.server.dto.SessionMessageRequest;
 import com.tingjian.server.dto.SessionMessageResponse;
+import com.tingjian.server.dto.SessionRenameRequest;
 import com.tingjian.server.dto.SessionResponse;
 import com.tingjian.server.service.SessionService;
 import jakarta.validation.Valid;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -55,6 +57,14 @@ public class SessionController {
             @CurrentUserId String userId, @PathVariable String id) {
         return ApiResponse.success(new SessionDetailResponse(
                 sessionService.get(userId, id), sessionService.messages(userId, id)));
+    }
+
+    @PatchMapping("/{id}")
+    public ApiResponse<SessionResponse> rename(
+            @CurrentUserId String userId,
+            @PathVariable String id,
+            @Valid @RequestBody SessionRenameRequest request) {
+        return ApiResponse.success(sessionService.rename(userId, id, request.title()));
     }
 
     @PostMapping("/{id}/messages")
