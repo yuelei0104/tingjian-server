@@ -39,6 +39,10 @@ public class UserDao {
         return jdbc.query(SELECT_COLUMNS + "WHERE id=?", this::mapRow, id).stream().findFirst();
     }
 
+    public int delete(String id) {
+        return jdbc.update("DELETE FROM app_user WHERE id=?", id);
+    }
+
     private UserEntity mapRow(ResultSet rs, int row) throws SQLException {
         return new UserEntity(
                 rs.getString("id"), rs.getString("email"), rs.getString("password_hash"),

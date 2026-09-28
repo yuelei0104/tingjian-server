@@ -68,6 +68,10 @@ public class AuthSessionDao {
                 """, now, now, refreshTokenHash);
     }
 
+    public int deleteByUserId(String userId) {
+        return jdbc.update("DELETE FROM auth_session WHERE user_id=?", userId);
+    }
+
     private AuthSessionEntity mapRow(ResultSet rs, int row) throws SQLException {
         return new AuthSessionEntity(
                 rs.getString("id"), rs.getString("user_id"), rs.getString("access_token_hash"),
