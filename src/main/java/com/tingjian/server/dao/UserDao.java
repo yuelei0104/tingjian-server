@@ -43,6 +43,20 @@ public class UserDao {
         return jdbc.update("DELETE FROM app_user WHERE id=?", id);
     }
 
+    public int updateDisplayName(String id, String displayName, LocalDateTime updatedAt) {
+        return jdbc.update("""
+                UPDATE app_user SET display_name=?, updated_at=?
+                WHERE id=? AND status='ACTIVE'
+                """, displayName, updatedAt, id);
+    }
+
+    public int updatePassword(String id, String passwordHash, LocalDateTime updatedAt) {
+        return jdbc.update("""
+                UPDATE app_user SET password_hash=?, updated_at=?
+                WHERE id=? AND status='ACTIVE'
+                """, passwordHash, updatedAt, id);
+    }
+
     private UserEntity mapRow(ResultSet rs, int row) throws SQLException {
         return new UserEntity(
                 rs.getString("id"), rs.getString("email"), rs.getString("password_hash"),
