@@ -6,6 +6,7 @@ import com.tingjian.server.dao.AuthSessionDao;
 import com.tingjian.server.dao.PrivacyDao;
 import com.tingjian.server.dao.UserDao;
 import com.tingjian.server.dto.AuthUserResponse;
+import com.tingjian.server.dto.AccountSessionResponse;
 import com.tingjian.server.entity.UserEntity;
 import com.tingjian.server.util.PasswordHasher;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 @Service
 public class AccountService {
@@ -31,6 +33,20 @@ public class AccountService {
 
     public AuthUserResponse profile(String userId) {
         return toResponse(requireActiveUser(userId));
+    }
+
+    public List<AccountSessionResponse> sessions(String userId) {
+        requireActiveUser(userId);
+        return authSessionDao.listActiveByUserId(userId, now()).stream()
+                .map(session -> new AccountSessionResponse(
+                        session.id(), session.createdAt(), session.updatedAt(),
+                        session.refreshExpiresAt()))
+                .toList();
+    }
+
+    public void revokeSession(String userId, String sessionId) {
+        requireActiveUser(userId);
+        authSessionDao.revokeByIdAndUserId(sessionId, userId, now());
     }
 
     @Transactional

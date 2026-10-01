@@ -4,12 +4,14 @@ import com.tingjian.server.common.BusinessException;
 import com.tingjian.server.dao.AuthSessionDao;
 import com.tingjian.server.dao.PrivacyDao;
 import com.tingjian.server.dao.UserDao;
+import com.tingjian.server.entity.AuthSessionEntity;
 import com.tingjian.server.entity.UserEntity;
 import com.tingjian.server.util.PasswordHasher;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -96,6 +98,29 @@ class AccountServiceTests {
         order.verify(privacyDao).deleteUserPreference("owner");
         order.verify(authSessionDao).deleteByUserId("owner");
         order.verify(userDao).delete("owner");
+    }
+
+    @Test
+    void sessionsReturnsOnlyOwnedActiveSessions() {
+        when(userDao.findById("owner")).thenReturn(Optional.of(user("correct-password")));
+        LocalDateTime now = LocalDateTime.now();
+        when(authSessionDao.listActiveByUserId(eq("owner"), any())).thenReturn(List.of(
+                new AuthSessionEntity("session-1", "owner", "a", "r",
+                        now.plusMinutes(30), now.plusDays(30), null, now, now)));
+
+        var sessions = service.sessions("owner");
+
+        assertEquals(1, sessions.size());
+        assertEquals("session-1", sessions.getFirst().id());
+    }
+
+    @Test
+    void revokeSessionIsScopedToOwner() {
+        when(userDao.findById("owner")).thenReturn(Optional.of(user("correct-password")));
+
+        service.revokeSession("owner", "session-1");
+
+        verify(authSessionDao).revokeByIdAndUserId(eq("session-1"), eq("owner"), any());
     }
 
     private static UserEntity user(String password) {

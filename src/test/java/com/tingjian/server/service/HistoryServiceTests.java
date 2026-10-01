@@ -2,6 +2,8 @@ package com.tingjian.server.service;
 
 import com.tingjian.server.dao.HistoryDao;
 import com.tingjian.server.entity.HistorySummaryEntity;
+import com.tingjian.server.dto.SessionMessageResponse;
+import com.tingjian.server.dto.SessionResponse;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -50,5 +52,20 @@ class HistoryServiceTests {
 
         verify(historyDao).deleteMessages("id");
         verify(historyDao).deleteConversation("id", "owner");
+    }
+
+    @Test
+    void summarizeBuildsStableExtractiveSummary() {
+        when(sessionService.get("owner", "id")).thenReturn(
+                new SessionResponse("id", "demo", "ENDED", null, null));
+        when(sessionService.messages("owner", "id")).thenReturn(List.of(
+                new SessionMessageResponse("1", "OTHER", "第一句话", null),
+                new SessionMessageResponse("2", "SELF", "第二句话", null)));
+
+        var response = service.summarize("owner", "id");
+
+        assertEquals(2, response.messageCount());
+        assertEquals("EXTRACTIVE_V1", response.generatedBy());
+        assertEquals("会话共 2 条文字。主要内容：第一句话；第二句话。", response.summary());
     }
 }

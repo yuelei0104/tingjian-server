@@ -49,6 +49,19 @@ public class SessionDao {
                 ownerId, size, offset);
     }
 
+    public List<ConversationEntity> listAll(String ownerId) {
+        return jdbc.query("SELECT id, owner_id, title, status, started_at, ended_at "
+                        + "FROM conversation WHERE owner_id=? ORDER BY started_at DESC, id DESC",
+                (rs, row) -> new ConversationEntity(
+                        rs.getString("id"),
+                        rs.getString("owner_id"),
+                        rs.getString("title"),
+                        rs.getString("status"),
+                        rs.getObject("started_at", LocalDateTime.class),
+                        rs.getObject("ended_at", LocalDateTime.class)),
+                ownerId);
+    }
+
     public int end(String id, String ownerId, LocalDateTime endedAt) {
         return jdbc.update("UPDATE conversation SET status='ENDED', ended_at=? "
                 + "WHERE id=? AND owner_id=? AND status='ACTIVE'", endedAt, id, ownerId);

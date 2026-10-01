@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -70,6 +71,20 @@ public class AuthSessionDao {
 
     public int deleteByUserId(String userId) {
         return jdbc.update("DELETE FROM auth_session WHERE user_id=?", userId);
+    }
+
+    public List<AuthSessionEntity> listActiveByUserId(String userId, LocalDateTime now) {
+        return jdbc.query(SELECT_COLUMNS + """
+                WHERE user_id=? AND revoked_at IS NULL AND refresh_expires_at>?
+                ORDER BY updated_at DESC, id DESC
+                """, this::mapRow, userId, now);
+    }
+
+    public int revokeByIdAndUserId(String id, String userId, LocalDateTime now) {
+        return jdbc.update("""
+                UPDATE auth_session SET revoked_at=?, updated_at=?
+                WHERE id=? AND user_id=? AND revoked_at IS NULL
+                """, now, now, id, userId);
     }
 
     private AuthSessionEntity mapRow(ResultSet rs, int row) throws SQLException {

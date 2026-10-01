@@ -3,6 +3,7 @@ package com.tingjian.server.controller;
 import com.tingjian.server.common.ApiResponse;
 import com.tingjian.server.common.CurrentUserId;
 import com.tingjian.server.dto.HistoryListResponse;
+import com.tingjian.server.dto.HistorySummaryResponse;
 import com.tingjian.server.dto.SessionDetailResponse;
 import com.tingjian.server.service.HistoryService;
 import jakarta.validation.constraints.Max;
@@ -12,6 +13,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,6 +41,12 @@ public class HistoryController {
     public ApiResponse<SessionDetailResponse> detail(
             @CurrentUserId String userId, @PathVariable String id) {
         return ApiResponse.success(historyService.detail(userId, id));
+    }
+
+    @PostMapping("/{id}/summary")
+    public ApiResponse<HistorySummaryResponse> summarize(
+            @CurrentUserId String userId, @PathVariable String id) {
+        return ApiResponse.success(historyService.summarize(userId, id));
     }
 
     @DeleteMapping("/{id}")

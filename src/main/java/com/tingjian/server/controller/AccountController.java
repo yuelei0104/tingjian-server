@@ -5,6 +5,7 @@ import com.tingjian.server.common.CurrentUserId;
 import com.tingjian.server.dto.AccountDeleteRequest;
 import com.tingjian.server.dto.AccountPasswordChangeRequest;
 import com.tingjian.server.dto.AccountProfileUpdateRequest;
+import com.tingjian.server.dto.AccountSessionResponse;
 import com.tingjian.server.dto.AuthUserResponse;
 import com.tingjian.server.service.AccountService;
 import jakarta.validation.Valid;
@@ -13,8 +14,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/account")
@@ -42,6 +46,19 @@ public class AccountController {
             @CurrentUserId String userId,
             @Valid @RequestBody AccountPasswordChangeRequest request) {
         accountService.changePassword(userId, request.currentPassword(), request.newPassword());
+        return ApiResponse.success(null);
+    }
+
+    @GetMapping("/sessions")
+    public ApiResponse<List<AccountSessionResponse>> sessions(
+            @CurrentUserId String userId) {
+        return ApiResponse.success(accountService.sessions(userId));
+    }
+
+    @DeleteMapping("/sessions/{sessionId}")
+    public ApiResponse<Void> revokeSession(
+            @CurrentUserId String userId, @PathVariable String sessionId) {
+        accountService.revokeSession(userId, sessionId);
         return ApiResponse.success(null);
     }
 
