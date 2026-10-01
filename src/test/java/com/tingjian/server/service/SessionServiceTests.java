@@ -3,11 +3,14 @@ package com.tingjian.server.service;
 import com.tingjian.server.common.BusinessException;
 import com.tingjian.server.dao.SessionDao;
 import com.tingjian.server.entity.ConversationEntity;
+import com.tingjian.server.entity.ConversationMessageEntity;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -25,7 +28,8 @@ class SessionServiceTests {
         when(sessionDao.lockStatus("id", "local-demo")).thenReturn(Optional.of("ENDED"));
 
         BusinessException error = assertThrows(BusinessException.class,
-                () -> service.addMessage("local-demo", "id", "OTHER", "hello"));
+                () -> service.addMessage(
+                        "local-demo", "id", "client-1", "OTHER", "hello"));
 
         assertEquals(409, error.errorCode().status().value());
         verify(sessionDao, never()).addMessage(any());
@@ -73,5 +77,57 @@ class SessionServiceTests {
                 () -> service.rename("owner", "id", "新标题"));
 
         assertEquals(404, error.errorCode().status().value());
+    }
+
+    @Test
+    void retryWithSameClientMessageIdReturnsExistingMessage() {
+        var existing = message("client-1", 7L, "OTHER", "hello");
+        when(sessionDao.lockStatus("id", "owner")).thenReturn(Optional.of("ACTIVE"));
+        when(sessionDao.findMessageByClientId("id", "client-1"))
+                .thenReturn(Optional.of(existing));
+
+        var response = service.addMessage(
+                "owner", "id", "client-1", "OTHER", "hello");
+
+        assertEquals("client-1", response.clientMessageId());
+        assertEquals(7L, response.sequence());
+        verify(sessionDao, never()).addMessage(any());
+    }
+
+    @Test
+    void reusedClientMessageIdWithDifferentPayloadIsRejected() {
+        when(sessionDao.lockStatus("id", "owner")).thenReturn(Optional.of("ACTIVE"));
+        when(sessionDao.findMessageByClientId("id", "client-1"))
+                .thenReturn(Optional.of(message("client-1", 1L, "OTHER", "hello")));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.addMessage(
+                        "owner", "id", "client-1", "SELF", "different"));
+
+        assertEquals(409, error.errorCode().status().value());
+    }
+
+    @Test
+    void messagePageUsesSequenceCursor() {
+        var session = new ConversationEntity(
+                "id", "owner", "demo", "ACTIVE", null, null);
+        when(sessionDao.find("id", "owner")).thenReturn(Optional.of(session));
+        when(sessionDao.messagesAfter("id", 3L, 3)).thenReturn(List.of(
+                message("client-4", 4L, "OTHER", "four"),
+                message("client-5", 5L, "SELF", "five"),
+                message("client-6", 6L, "OTHER", "six")));
+
+        var page = service.messagePage("owner", "id", 3L, 2);
+
+        assertEquals(2, page.items().size());
+        assertEquals(5L, page.nextAfterSequence());
+        assertTrue(page.hasNext());
+    }
+
+    private static ConversationMessageEntity message(
+            String clientId, long sequence, String speaker, String content) {
+        return new ConversationMessageEntity(
+                "message-" + sequence, "id", clientId, sequence,
+                speaker, content, null);
     }
 }

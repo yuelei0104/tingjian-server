@@ -40,7 +40,8 @@ class DataExportServiceTests {
                 "conversation-1", "owner", "演示会话", "ENDED", now, now)));
         when(sessionDao.messages("conversation-1")).thenReturn(List.of(
                 new ConversationMessageEntity(
-                        "message-1", "conversation-1", "OTHER", "你好", now)));
+                        "message-1", "conversation-1", "client-1", 1,
+                        "OTHER", "你好", now)));
         when(keywordService.list("owner")).thenReturn(List.of(
                 new KeywordResponse("keyword-1", "姓名", true, 1, true, now, now)));
         when(glossaryService.list("owner")).thenReturn(List.of(

@@ -61,4 +61,30 @@ curl.exe -X POST http://127.0.0.1:8080/api/dev/quick-phrases -H "Content-Type: a
 curl.exe http://127.0.0.1:8080/api/dev/quick-phrases
 ```
 
-这一阶段会保存手动写入的文本消息、关键词、术语和常用语；实时语音识别、TTS、会话中的实时关键词匹配、正式用户登录与账号隔离将在后续开发。正式对外提供服务前必须把本地演示账号换成登录身份，并完成数据迁移和鉴权。
+## 实时文字会话与断线恢复
+
+登录后可使用 `ws://127.0.0.1:8080/ws/realtime`。握手请求必须携带
+`Authorization: Bearer <accessToken>`。客户端发送：
+
+```json
+{
+  "type": "MESSAGE",
+  "sessionId": "会话 ID",
+  "clientMessageId": "客户端生成且在该会话内唯一的 ID",
+  "speaker": "OTHER",
+  "content": "你好"
+}
+```
+
+服务端保存成功后向发送端返回 `ACK`，并向该账号的其他在线连接广播
+`MESSAGE`。相同 `clientMessageId` 和相同内容可安全重试；相同编号对应不同内容时
+返回 `IDEMPOTENCY_CONFLICT`。每条消息带递增的 `sequence`。
+
+断线恢复使用
+`GET /api/v1/sessions/{id}/messages?afterSequence=0&size=100`，按响应中的
+`nextAfterSequence` 继续读取，直到 `hasNext=false`。Android 客户端先将待发消息
+写入本机持久化队列，收到 `ACK` 后才移除；WebSocket 断开时自动退避重连，最终
+仍通过 REST 幂等补齐并结束会话。因此 WebSocket 用于低延迟，REST 用于恢复，
+不能把“已调用 send”当作已经保存成功。
+
+实时语音识别和 TTS 仍使用 Android 系统能力，第三方云 ASR/TTS 暂未接入。

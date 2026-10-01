@@ -19,6 +19,26 @@ CREATE TABLE IF NOT EXISTS conversation_message (
         REFERENCES conversation (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS conversation_message_delivery (
+    message_id CHAR(36) NOT NULL PRIMARY KEY,
+    conversation_id CHAR(36) NOT NULL,
+    client_message_id VARCHAR(64) NOT NULL,
+    sequence_no BIGINT NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_message_delivery_client (conversation_id, client_message_id),
+    UNIQUE KEY uq_message_delivery_sequence (conversation_id, sequence_no),
+    CONSTRAINT fk_delivery_message FOREIGN KEY (message_id)
+        REFERENCES conversation_message (id) ON DELETE CASCADE,
+    CONSTRAINT fk_delivery_conversation FOREIGN KEY (conversation_id)
+        REFERENCES conversation (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO conversation_message_delivery
+    (message_id, conversation_id, client_message_id, sequence_no, created_at)
+SELECT id, conversation_id, CONCAT('legacy-', id),
+       ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY created_at, id), created_at
+FROM conversation_message;
+
 CREATE TABLE IF NOT EXISTS keyword_rule (
     id CHAR(36) NOT NULL PRIMARY KEY,
     owner_id VARCHAR(64) NOT NULL,

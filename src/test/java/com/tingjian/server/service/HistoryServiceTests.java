@@ -59,8 +59,8 @@ class HistoryServiceTests {
         when(sessionService.get("owner", "id")).thenReturn(
                 new SessionResponse("id", "demo", "ENDED", null, null));
         when(sessionService.messages("owner", "id")).thenReturn(List.of(
-                new SessionMessageResponse("1", "OTHER", "第一句话", null),
-                new SessionMessageResponse("2", "SELF", "第二句话", null)));
+                new SessionMessageResponse("1", "client-1", 1, "OTHER", "第一句话", null),
+                new SessionMessageResponse("2", "client-2", 2, "SELF", "第二句话", null)));
 
         var response = service.summarize("owner", "id");
 

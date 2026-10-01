@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record SessionMessageRequest(
+        @NotBlank @Size(max = 64) String clientMessageId,
         @NotNull Speaker speaker,
         @NotBlank @Size(max = 2000) String content) {
 

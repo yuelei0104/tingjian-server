@@ -6,6 +6,7 @@ import com.tingjian.server.dto.SessionCreateRequest;
 import com.tingjian.server.dto.SessionDetailResponse;
 import com.tingjian.server.dto.SessionMessageRequest;
 import com.tingjian.server.dto.SessionMessageResponse;
+import com.tingjian.server.dto.SessionMessagePageResponse;
 import com.tingjian.server.dto.SessionRenameRequest;
 import com.tingjian.server.dto.SessionResponse;
 import com.tingjian.server.service.SessionService;
@@ -74,7 +75,18 @@ public class SessionController {
             @PathVariable String id,
             @Valid @RequestBody SessionMessageRequest request) {
         return ApiResponse.success(sessionService.addMessage(
-                userId, id, request.speaker().name(), request.content()));
+                userId, id, request.clientMessageId(),
+                request.speaker().name(), request.content()));
+    }
+
+    @GetMapping("/{id}/messages")
+    public ApiResponse<SessionMessagePageResponse> messages(
+            @CurrentUserId String userId,
+            @PathVariable String id,
+            @RequestParam(defaultValue = "0") @Min(0) long afterSequence,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size) {
+        return ApiResponse.success(
+                sessionService.messagePage(userId, id, afterSequence, size));
     }
 
     @PostMapping("/{id}/end")

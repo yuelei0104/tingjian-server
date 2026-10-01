@@ -20,7 +20,9 @@ import static org.mockito.Mockito.when;
 
 class AccessTokenInterceptorTests {
     private final AuthSessionDao authSessionDao = mock(AuthSessionDao.class);
-    private final AccessTokenInterceptor interceptor = new AccessTokenInterceptor(authSessionDao);
+    private final AccessTokenService accessTokenService = new AccessTokenService(authSessionDao);
+    private final AccessTokenInterceptor interceptor =
+            new AccessTokenInterceptor(accessTokenService);
     private final HttpServletRequest request = mock(HttpServletRequest.class);
     private final HttpServletResponse response = mock(HttpServletResponse.class);
 

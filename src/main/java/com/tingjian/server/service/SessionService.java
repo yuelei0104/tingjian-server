@@ -4,6 +4,7 @@ import com.tingjian.server.common.BusinessException;
 import com.tingjian.server.common.ErrorCode;
 import com.tingjian.server.dao.SessionDao;
 import com.tingjian.server.dto.SessionMessageResponse;
+import com.tingjian.server.dto.SessionMessagePageResponse;
 import com.tingjian.server.dto.SessionResponse;
 import com.tingjian.server.entity.ConversationEntity;
 import com.tingjian.server.entity.ConversationMessageEntity;
@@ -58,6 +59,18 @@ public class SessionService {
                 .toList();
     }
 
+    public SessionMessagePageResponse messagePage(
+            String ownerId, String sessionId, long afterSequence, int size) {
+        get(ownerId, sessionId);
+        var rows = sessionDao.messagesAfter(sessionId, afterSequence, size + 1);
+        boolean hasNext = rows.size() > size;
+        var items = rows.stream().limit(size).map(SessionService::toResponse).toList();
+        long next = items.isEmpty()
+                ? afterSequence
+                : items.getLast().sequence();
+        return new SessionMessagePageResponse(items, next, hasNext);
+    }
+
     public SessionResponse end(String ownerId, String id) {
         sessionDao.end(id, ownerId, LocalDateTime.now(ZoneOffset.UTC));
         return get(ownerId, id);
@@ -65,15 +78,30 @@ public class SessionService {
 
     @Transactional
     public SessionMessageResponse addMessage(
-            String ownerId, String sessionId, String speaker, String content) {
+            String ownerId, String sessionId, String clientMessageId,
+            String speaker, String content) {
+        String normalizedClientMessageId = clientMessageId.strip();
+        String normalizedContent = content.strip();
         String status = sessionDao.lockStatus(sessionId, ownerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_NOT_FOUND));
+        var existing = sessionDao.findMessageByClientId(
+                sessionId, normalizedClientMessageId);
+        if (existing.isPresent()) {
+            var message = existing.get();
+            if (!message.speaker().equals(speaker)
+                    || !message.content().equals(normalizedContent)) {
+                throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT);
+            }
+            return toResponse(message);
+        }
         if (!"ACTIVE".equals(status)) {
             throw new BusinessException(ErrorCode.SESSION_ENDED);
         }
 
         ConversationMessageEntity message = new ConversationMessageEntity(
-                IdGenerator.uuid(), sessionId, speaker, content, LocalDateTime.now(ZoneOffset.UTC));
+                IdGenerator.uuid(), sessionId, normalizedClientMessageId,
+                sessionDao.nextMessageSequence(sessionId), speaker, normalizedContent,
+                LocalDateTime.now(ZoneOffset.UTC));
         sessionDao.addMessage(message);
         return toResponse(message);
     }
@@ -85,6 +113,7 @@ public class SessionService {
 
     private static SessionMessageResponse toResponse(ConversationMessageEntity message) {
         return new SessionMessageResponse(
-                message.id(), message.speaker(), message.content(), message.createdAt());
+                message.id(), message.clientMessageId(), message.sequence(),
+                message.speaker(), message.content(), message.createdAt());
     }
 }
