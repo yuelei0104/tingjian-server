@@ -10,5 +10,6 @@ public record PrivacyExportResponse(
         List<KeywordResponse> keywords,
         List<GlossaryResponse> glossaryTerms,
         List<QuickPhraseResponse> quickPhrases,
-        UserPreferenceResponse preferences) {
+        UserPreferenceResponse preferences,
+        AccessibilityPreferenceResponse accessibility) {
 }

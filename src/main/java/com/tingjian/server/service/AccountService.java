@@ -89,6 +89,7 @@ public class AccountService {
         privacyDao.deleteGlossaryTerms(userId);
         privacyDao.deleteQuickPhrases(userId);
         privacyDao.deleteUserPreference(userId);
+        privacyDao.deleteAccessibilityPreference(userId);
         authSessionDao.deleteByUserId(userId);
         if (userDao.delete(userId) == 0) {
             throw new BusinessException(ErrorCode.AUTH_INVALID_TOKEN);

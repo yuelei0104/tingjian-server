@@ -22,6 +22,7 @@ public class DataExportService {
     private final GlossaryService glossaryService;
     private final QuickPhraseService quickPhraseService;
     private final UserPreferenceService userPreferenceService;
+    private final AccessibilityPreferenceService accessibilityPreferenceService;
 
     public DataExportService(
             UserDao userDao,
@@ -29,13 +30,15 @@ public class DataExportService {
             KeywordService keywordService,
             GlossaryService glossaryService,
             QuickPhraseService quickPhraseService,
-            UserPreferenceService userPreferenceService) {
+            UserPreferenceService userPreferenceService,
+            AccessibilityPreferenceService accessibilityPreferenceService) {
         this.userDao = userDao;
         this.sessionDao = sessionDao;
         this.keywordService = keywordService;
         this.glossaryService = glossaryService;
         this.quickPhraseService = quickPhraseService;
         this.userPreferenceService = userPreferenceService;
+        this.accessibilityPreferenceService = accessibilityPreferenceService;
     }
 
     @Transactional(readOnly = true)
@@ -59,6 +62,7 @@ public class DataExportService {
                 keywordService.list(ownerId),
                 glossaryService.list(ownerId),
                 quickPhraseService.list(ownerId),
-                userPreferenceService.get(ownerId));
+                userPreferenceService.get(ownerId),
+                accessibilityPreferenceService.get(ownerId));
     }
 }

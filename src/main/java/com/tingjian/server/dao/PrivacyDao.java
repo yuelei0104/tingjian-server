@@ -37,4 +37,9 @@ public class PrivacyDao {
     public int deleteUserPreference(String ownerId) {
         return jdbc.update("DELETE FROM user_preference WHERE owner_id=?", ownerId);
     }
+
+    public int deleteAccessibilityPreference(String ownerId) {
+        return jdbc.update(
+                "DELETE FROM accessibility_preference WHERE owner_id=?", ownerId);
+    }
 }

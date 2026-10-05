@@ -5,6 +5,7 @@ import com.tingjian.server.dao.UserDao;
 import com.tingjian.server.dto.GlossaryResponse;
 import com.tingjian.server.dto.KeywordResponse;
 import com.tingjian.server.dto.QuickPhraseResponse;
+import com.tingjian.server.dto.AccessibilityPreferenceResponse;
 import com.tingjian.server.dto.UserPreferenceResponse;
 import com.tingjian.server.entity.ConversationEntity;
 import com.tingjian.server.entity.ConversationMessageEntity;
@@ -17,6 +18,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -27,9 +29,11 @@ class DataExportServiceTests {
     private final GlossaryService glossaryService = mock(GlossaryService.class);
     private final QuickPhraseService quickPhraseService = mock(QuickPhraseService.class);
     private final UserPreferenceService preferenceService = mock(UserPreferenceService.class);
+    private final AccessibilityPreferenceService accessibilityPreferenceService =
+            mock(AccessibilityPreferenceService.class);
     private final DataExportService service = new DataExportService(
             userDao, sessionDao, keywordService, glossaryService, quickPhraseService,
-            preferenceService);
+            preferenceService, accessibilityPreferenceService);
 
     @Test
     void exportCollectsOwnedAccountConversationsAndPersonalization() {
@@ -53,6 +57,9 @@ class DataExportServiceTests {
         when(preferenceService.get("owner")).thenReturn(new UserPreferenceResponse(
                 true, false, "system", "default", 1.0, "zh-CN", true,
                 true, false, now));
+        when(accessibilityPreferenceService.get("owner")).thenReturn(
+                new AccessibilityPreferenceResponse(
+                        true, true, true, true, false, true, now));
 
         var response = service.export("owner");
 
@@ -62,6 +69,7 @@ class DataExportServiceTests {
         assertEquals(1, response.keywords().size());
         assertEquals(1, response.glossaryTerms().size());
         assertEquals(1, response.quickPhrases().size());
+        assertTrue(response.accessibility().highContrast());
     }
 
     @Test

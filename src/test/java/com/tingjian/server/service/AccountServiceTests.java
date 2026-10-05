@@ -96,6 +96,7 @@ class AccountServiceTests {
         order.verify(privacyDao).deleteGlossaryTerms("owner");
         order.verify(privacyDao).deleteQuickPhrases("owner");
         order.verify(privacyDao).deleteUserPreference("owner");
+        order.verify(privacyDao).deleteAccessibilityPreference("owner");
         order.verify(authSessionDao).deleteByUserId("owner");
         order.verify(userDao).delete("owner");
     }

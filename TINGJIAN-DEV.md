@@ -94,3 +94,11 @@ curl.exe http://127.0.0.1:8080/api/dev/quick-phrases
 长期处于 `ACTIVE` 的会话。
 
 实时语音识别和 TTS 仍使用 Android 系统能力，第三方云 ASR/TTS 暂未接入。
+
+## 无障碍偏好
+
+登录用户使用 `GET /api/v1/accessibility/preferences` 读取无障碍设置，使用
+`PUT /api/v1/accessibility/preferences` 整体更新。设置包括高对比度、视觉提醒、
+系统通知、增强振动以及进入字幕页时是否默认跟随最新内容。首次读取返回
+`configured=false` 和一组安全默认值；数据按账号隔离，并随清空全部数据或注销
+账号一并删除。

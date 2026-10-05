@@ -122,3 +122,15 @@ CREATE TABLE IF NOT EXISTS user_preference (
     CONSTRAINT fk_preference_user FOREIGN KEY (owner_id)
         REFERENCES app_user (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS accessibility_preference (
+    owner_id CHAR(36) NOT NULL PRIMARY KEY,
+    high_contrast BOOLEAN NOT NULL DEFAULT FALSE,
+    visual_alerts BOOLEAN NOT NULL DEFAULT TRUE,
+    system_notifications BOOLEAN NOT NULL DEFAULT FALSE,
+    strong_vibration BOOLEAN NOT NULL DEFAULT FALSE,
+    caption_follow BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at DATETIME(3) NOT NULL,
+    CONSTRAINT fk_accessibility_preference_user FOREIGN KEY (owner_id)
+        REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

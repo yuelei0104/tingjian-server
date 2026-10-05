@@ -7,6 +7,7 @@ import org.mockito.InOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PrivacyServiceTests {
@@ -38,5 +39,13 @@ class PrivacyServiceTests {
         assertEquals(1, response.keywords());
         assertEquals(2, response.glossaryTerms());
         assertEquals(3, response.quickPhrases());
+    }
+
+    @Test
+    void deleteAllDataAlsoClearsDisplayAndAccessibilityPreferences() {
+        service.deleteAllLocalData("owner");
+
+        verify(privacyDao).deleteUserPreference("owner");
+        verify(privacyDao).deleteAccessibilityPreference("owner");
     }
 }
