@@ -5,10 +5,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-public record RegisterRequest(
+public record PasswordResetRequest(
         @NotBlank @Email @Size(max = 254) String email,
-        @NotBlank @Size(min = 8, max = 128) String password,
-        @NotBlank @Size(max = 40) String displayName,
         @NotBlank @Size(max = 36) String verificationId,
-        @NotBlank @Pattern(regexp = "\\d{6}") String verificationCode) {
+        @NotBlank @Pattern(regexp = "\\d{6}") String verificationCode,
+        @NotBlank @Size(min = 8, max = 128) String newPassword) {
 }

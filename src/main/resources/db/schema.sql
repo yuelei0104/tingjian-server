@@ -91,6 +91,20 @@ CREATE TABLE IF NOT EXISTS app_user (
     UNIQUE KEY uq_user_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS auth_verification_code (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    channel VARCHAR(16) NOT NULL,
+    destination VARCHAR(254) NOT NULL,
+    purpose VARCHAR(32) NOT NULL,
+    code_hash CHAR(64) NOT NULL,
+    failed_attempts INT NOT NULL DEFAULT 0,
+    expires_at DATETIME(3) NOT NULL,
+    consumed_at DATETIME(3) NULL,
+    created_at DATETIME(3) NOT NULL,
+    KEY idx_verification_destination (destination, purpose, created_at),
+    KEY idx_verification_expiry (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS auth_session (
     id CHAR(36) NOT NULL PRIMARY KEY,
     user_id CHAR(36) NOT NULL,

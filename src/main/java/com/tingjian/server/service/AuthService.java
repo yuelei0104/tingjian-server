@@ -28,17 +28,29 @@ public class AuthService {
 
     private final UserDao userDao;
     private final AuthSessionDao authSessionDao;
+    private final VerificationCodeService verificationCodeService;
+    private final AuthRateLimitService rateLimitService;
 
-    public AuthService(UserDao userDao, AuthSessionDao authSessionDao) {
+    public AuthService(
+            UserDao userDao,
+            AuthSessionDao authSessionDao,
+            VerificationCodeService verificationCodeService,
+            AuthRateLimitService rateLimitService) {
         this.userDao = userDao;
         this.authSessionDao = authSessionDao;
+        this.verificationCodeService = verificationCodeService;
+        this.rateLimitService = rateLimitService;
     }
 
     @Transactional
     public AuthTokenResponse register(RegisterRequest request) {
+        String email = normalizeEmail(request.email());
+        verificationCodeService.verifyAndConsume(
+                request.verificationId(), request.verificationCode(), email,
+                VerificationCodeService.REGISTER);
         LocalDateTime now = now();
         UserEntity user = new UserEntity(
-                IdGenerator.uuid(), normalizeEmail(request.email()), PasswordHasher.hash(request.password()),
+                IdGenerator.uuid(), email, PasswordHasher.hash(request.password()),
                 request.displayName().strip(), "ACTIVE", now, now);
         try {
             userDao.create(user);
@@ -49,14 +61,54 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthTokenResponse login(LoginRequest request) {
-        UserEntity user = userDao.findByEmail(normalizeEmail(request.email()))
+    public AuthTokenResponse login(LoginRequest request, String clientIp) {
+        String email = normalizeEmail(request.email());
+        rateLimitService.checkLogin(email, clientIp);
+        UserEntity user = userDao.findByEmail(email)
                 .filter(candidate -> "ACTIVE".equals(candidate.status()))
-                .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_INVALID_CREDENTIALS));
-        if (!PasswordHasher.matches(request.password(), user.passwordHash())) {
+                .orElse(null);
+        if (user == null || !PasswordHasher.matches(request.password(), user.passwordHash())) {
+            rateLimitService.recordLoginFailure(email, clientIp);
             throw new BusinessException(ErrorCode.AUTH_INVALID_CREDENTIALS);
         }
+        rateLimitService.recordLoginSuccess(email);
         return createSession(user, now());
+    }
+
+    public com.tingjian.server.dto.VerificationChallengeResponse requestRegistrationCode(
+            String email, String clientIp) {
+        String normalized = normalizeEmail(email);
+        if (userDao.findByEmail(normalized).isPresent()) {
+            throw new BusinessException(ErrorCode.EMAIL_ALREADY_REGISTERED);
+        }
+        return verificationCodeService.issueEmail(
+                normalized, VerificationCodeService.REGISTER, clientIp, true);
+    }
+
+    public com.tingjian.server.dto.VerificationChallengeResponse requestPasswordReset(
+            String email, String clientIp) {
+        String normalized = normalizeEmail(email);
+        boolean userExists = userDao.findByEmail(normalized)
+                .filter(user -> "ACTIVE".equals(user.status()))
+                .isPresent();
+        return verificationCodeService.issueEmail(
+                normalized, VerificationCodeService.RESET_PASSWORD, clientIp, userExists);
+    }
+
+    @Transactional
+    public void resetPassword(com.tingjian.server.dto.PasswordResetRequest request) {
+        String email = normalizeEmail(request.email());
+        verificationCodeService.verifyAndConsume(
+                request.verificationId(), request.verificationCode(), email,
+                VerificationCodeService.RESET_PASSWORD);
+        UserEntity user = userDao.findByEmail(email)
+                .filter(candidate -> "ACTIVE".equals(candidate.status()))
+                .orElseThrow(() -> new BusinessException(ErrorCode.VERIFICATION_CODE_INVALID));
+        if (userDao.updatePassword(
+                user.id(), PasswordHasher.hash(request.newPassword()), now()) == 0) {
+            throw new BusinessException(ErrorCode.VERIFICATION_CODE_INVALID);
+        }
+        authSessionDao.deleteByUserId(user.id());
     }
 
     @Transactional

@@ -16,6 +16,9 @@ public enum ErrorCode {
     EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "邮箱已注册"),
     AUTH_INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "邮箱或密码错误"),
     AUTH_INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "登录凭证无效或已过期"),
+    AUTH_TOO_MANY_ATTEMPTS(HttpStatus.TOO_MANY_REQUESTS, "尝试次数过多，请稍后再试"),
+    VERIFICATION_CODE_INVALID(HttpStatus.BAD_REQUEST, "验证码无效或已过期"),
+    VERIFICATION_CODE_TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "验证码发送过于频繁，请稍后再试"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "服务器内部错误");
 
     private final HttpStatus status;
