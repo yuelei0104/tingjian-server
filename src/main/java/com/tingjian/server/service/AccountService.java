@@ -88,6 +88,7 @@ public class AccountService {
         privacyDao.deleteKeywords(userId);
         privacyDao.deleteGlossaryTerms(userId);
         privacyDao.deleteQuickPhrases(userId);
+        privacyDao.deleteAiSuggestionRequests(userId);
         privacyDao.deleteUserPreference(userId);
         privacyDao.deleteAccessibilityPreference(userId);
         authSessionDao.deleteByUserId(userId);

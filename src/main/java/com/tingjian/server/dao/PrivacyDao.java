@@ -42,4 +42,8 @@ public class PrivacyDao {
         return jdbc.update(
                 "DELETE FROM accessibility_preference WHERE owner_id=?", ownerId);
     }
+
+    public int deleteAiSuggestionRequests(String ownerId) {
+        return jdbc.update("DELETE FROM ai_suggestion_request WHERE owner_id=?", ownerId);
+    }
 }

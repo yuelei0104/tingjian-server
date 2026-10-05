@@ -134,3 +134,22 @@ CREATE TABLE IF NOT EXISTS accessibility_preference (
     CONSTRAINT fk_accessibility_preference_user FOREIGN KEY (owner_id)
         REFERENCES app_user (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS ai_suggestion_request (
+    owner_id CHAR(36) NOT NULL,
+    client_request_id VARCHAR(64) NOT NULL,
+    input_hash CHAR(64) NOT NULL,
+    action VARCHAR(24) NOT NULL,
+    language VARCHAR(16) NOT NULL,
+    suggestion VARCHAR(1000) NOT NULL,
+    provider VARCHAR(40) NOT NULL,
+    fallback BOOLEAN NOT NULL DEFAULT FALSE,
+    context_messages INT NOT NULL DEFAULT 0,
+    input_characters INT NOT NULL DEFAULT 0,
+    output_characters INT NOT NULL DEFAULT 0,
+    created_at DATETIME(3) NOT NULL,
+    PRIMARY KEY (owner_id, client_request_id),
+    CONSTRAINT fk_ai_suggestion_owner FOREIGN KEY (owner_id)
+        REFERENCES app_user (id) ON DELETE CASCADE,
+    KEY idx_ai_suggestion_owner_created (owner_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

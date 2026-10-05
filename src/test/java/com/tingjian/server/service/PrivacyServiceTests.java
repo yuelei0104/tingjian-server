@@ -45,6 +45,7 @@ class PrivacyServiceTests {
     void deleteAllDataAlsoClearsDisplayAndAccessibilityPreferences() {
         service.deleteAllLocalData("owner");
 
+        verify(privacyDao).deleteAiSuggestionRequests("owner");
         verify(privacyDao).deleteUserPreference("owner");
         verify(privacyDao).deleteAccessibilityPreference("owner");
     }

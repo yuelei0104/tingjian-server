@@ -102,3 +102,20 @@ curl.exe http://127.0.0.1:8080/api/dev/quick-phrases
 系统通知、增强振动以及进入字幕页时是否默认跟随最新内容。首次读取返回
 `configured=false` 和一组安全默认值；数据按账号隔离，并随清空全部数据或注销
 账号一并删除。
+
+## 表达助手框架
+
+登录用户使用 `POST /api/v1/ai/suggestions` 生成候选表达。当前默认 Provider 是
+`LOCAL_TEMPLATE`，不依赖付费模型；后续接入云端模型时只需实现
+`AiExpressionProvider`，Controller、Android DTO 和本机回退逻辑无需改动。
+
+请求必须包含客户端生成的 `clientRequestId`、动作 `action`、界面语言以及最近对话
+上下文。支持的动作是 `REPLY`、`POLITE`、`CONCISE`、`FORMAL`、
+`TRANSLATE_ZH` 和 `TRANSLATE_EN`。服务端仅保留最近 8 条上下文，每条最多 240 字，
+并在调用 Provider 前遮盖邮箱、Bearer 凭证和 `sk-` 密钥。Provider 超过 3 秒或抛出
+异常时自动使用本机模板回退。
+
+同一账号重复提交相同 `clientRequestId` 与相同内容时直接返回第一次的结果；编号相同
+但内容不同则返回 `AI_IDEMPOTENCY_CONFLICT`。数据库只保存脱敏后的候选结果、Provider
+名称及输入输出字符数，不保存原始上下文。清空全部数据或注销账号会同步删除这些记录。
+Android 的“采用建议”只把候选内容填回输入框，仍需用户主动点击“发送并播报”。

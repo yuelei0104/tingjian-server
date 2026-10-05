@@ -8,6 +8,7 @@ public enum ErrorCode {
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "会话不存在"),
     SESSION_ENDED(HttpStatus.CONFLICT, "会话已结束"),
     IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "客户端消息编号已用于其他内容"),
+    AI_IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "AI 请求编号已用于其他内容"),
     KEYWORD_NOT_FOUND(HttpStatus.NOT_FOUND, "关键词不存在"),
     GLOSSARY_NOT_FOUND(HttpStatus.NOT_FOUND, "术语不存在"),
     QUICK_PHRASE_NOT_FOUND(HttpStatus.NOT_FOUND, "常用语不存在"),
