@@ -2,6 +2,7 @@ package com.tingjian.server.controller;
 
 import com.tingjian.server.common.ApiResponse;
 import com.tingjian.server.common.CurrentUserId;
+import com.tingjian.server.dto.ActiveSessionResponse;
 import com.tingjian.server.dto.SessionCreateRequest;
 import com.tingjian.server.dto.SessionDetailResponse;
 import com.tingjian.server.dto.SessionMessageRequest;
@@ -51,6 +52,12 @@ public class SessionController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
         return ApiResponse.success(sessionService.list(userId, page, size));
+    }
+
+    @GetMapping("/active")
+    public ApiResponse<ActiveSessionResponse> active(
+            @CurrentUserId String userId) {
+        return ApiResponse.success(sessionService.active(userId));
     }
 
     @GetMapping("/{id}")

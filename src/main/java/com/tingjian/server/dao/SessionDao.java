@@ -26,14 +26,15 @@ public class SessionDao {
     public Optional<ConversationEntity> find(String id, String ownerId) {
         return jdbc.query("SELECT id, owner_id, title, status, started_at, ended_at "
                         + "FROM conversation WHERE id=? AND owner_id=?",
-                (rs, row) -> new ConversationEntity(
-                        rs.getString("id"),
-                        rs.getString("owner_id"),
-                        rs.getString("title"),
-                        rs.getString("status"),
-                        rs.getObject("started_at", LocalDateTime.class),
-                        rs.getObject("ended_at", LocalDateTime.class)),
+                this::mapConversation,
                 id, ownerId).stream().findFirst();
+    }
+
+    public Optional<ConversationEntity> findLatestActive(String ownerId) {
+        return jdbc.query("SELECT id, owner_id, title, status, started_at, ended_at "
+                        + "FROM conversation WHERE owner_id=? AND status='ACTIVE' "
+                        + "ORDER BY started_at DESC, id DESC LIMIT 1",
+                this::mapConversation, ownerId).stream().findFirst();
     }
 
     public List<ConversationEntity> list(String ownerId, int size, long offset) {
@@ -134,5 +135,16 @@ public class SessionDao {
                 rs.getString("speaker"),
                 rs.getString("content"),
                 rs.getObject("created_at", LocalDateTime.class));
+    }
+
+    private ConversationEntity mapConversation(
+            java.sql.ResultSet rs, int row) throws java.sql.SQLException {
+        return new ConversationEntity(
+                rs.getString("id"),
+                rs.getString("owner_id"),
+                rs.getString("title"),
+                rs.getString("status"),
+                rs.getObject("started_at", LocalDateTime.class),
+                rs.getObject("ended_at", LocalDateTime.class));
     }
 }

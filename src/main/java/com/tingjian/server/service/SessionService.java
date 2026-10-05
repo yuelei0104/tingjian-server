@@ -3,6 +3,7 @@ package com.tingjian.server.service;
 import com.tingjian.server.common.BusinessException;
 import com.tingjian.server.common.ErrorCode;
 import com.tingjian.server.dao.SessionDao;
+import com.tingjian.server.dto.ActiveSessionResponse;
 import com.tingjian.server.dto.SessionMessageResponse;
 import com.tingjian.server.dto.SessionMessagePageResponse;
 import com.tingjian.server.dto.SessionResponse;
@@ -43,6 +44,13 @@ public class SessionService {
         return sessionDao.list(ownerId, size, (long) page * size).stream()
                 .map(SessionService::toResponse)
                 .toList();
+    }
+
+    public ActiveSessionResponse active(String ownerId) {
+        return sessionDao.findLatestActive(ownerId)
+                .map(session -> new ActiveSessionResponse(
+                        true, toResponse(session)))
+                .orElseGet(() -> new ActiveSessionResponse(false, null));
     }
 
     public SessionResponse rename(String ownerId, String id, String title) {

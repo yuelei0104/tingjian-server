@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -122,6 +124,28 @@ class SessionServiceTests {
         assertEquals(2, page.items().size());
         assertEquals(5L, page.nextAfterSequence());
         assertTrue(page.hasNext());
+    }
+
+    @Test
+    void activeSessionReturnsLatestOwnedConversation() {
+        var session = new ConversationEntity(
+                "active-id", "owner", "课堂会话", "ACTIVE", null, null);
+        when(sessionDao.findLatestActive("owner")).thenReturn(Optional.of(session));
+
+        var response = service.active("owner");
+
+        assertTrue(response.available());
+        assertEquals("active-id", response.session().id());
+    }
+
+    @Test
+    void activeSessionExplicitlyReportsWhenNothingCanBeResumed() {
+        when(sessionDao.findLatestActive("owner")).thenReturn(Optional.empty());
+
+        var response = service.active("owner");
+
+        assertFalse(response.available());
+        assertNull(response.session());
     }
 
     private static ConversationMessageEntity message(

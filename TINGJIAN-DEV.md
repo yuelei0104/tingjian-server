@@ -87,4 +87,10 @@ curl.exe http://127.0.0.1:8080/api/dev/quick-phrases
 仍通过 REST 幂等补齐并结束会话。因此 WebSocket 用于低延迟，REST 用于恢复，
 不能把“已调用 send”当作已经保存成功。
 
+客户端进程重启后可调用 `GET /api/v1/sessions/active`。响应中的
+`available=true` 表示存在可继续的最新活跃会话，`session` 同时包含会话信息和
+状态；没有活跃会话时返回 `available=false`。客户端应让用户明确选择
+“继续”或“放弃”，放弃时调用原有的 `POST /api/v1/sessions/{id}/end`，避免遗留
+长期处于 `ACTIVE` 的会话。
+
 实时语音识别和 TTS 仍使用 Android 系统能力，第三方云 ASR/TTS 暂未接入。
