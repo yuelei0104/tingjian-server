@@ -119,3 +119,16 @@ curl.exe http://127.0.0.1:8080/api/dev/quick-phrases
 但内容不同则返回 `AI_IDEMPOTENCY_CONFLICT`。数据库只保存脱敏后的候选结果、Provider
 名称及输入输出字符数，不保存原始上下文。清空全部数据或注销账号会同步删除这些记录。
 Android 的“采用建议”只把候选内容填回输入框，仍需用户主动点击“发送并播报”。
+
+## 语音 Provider 与智能会话
+
+Android 的系统语音识别和系统文字转语音已经通过
+`SpeechRecognitionProvider` 与 `SpeechSynthesisProvider` 隔离。持续监听、停顿后自动
+重启、权限错误、网络退避、中英语言选择以及“播报期间暂停识别”均保留原交互。
+后续接入云 ASR/TTS 时新增 Provider 即可，不需要把 SDK 逻辑重新写进 `LiveScreen`。
+
+历史详情中的 `POST /api/v1/history/{id}/summary` 现在返回完整的智能整理结果：摘要、
+最多 3 条重点、最多 5 条待办、关键词和语气。服务端会对送入 Provider 的内容进行
+敏感信息遮盖，最多分析最近 100 条文字；Provider 超时或异常时自动使用本地规则。
+结果按会话内容哈希缓存，会话内容不变时重复生成直接返回缓存，原文更新后自动重新
+分析。当前默认实现是 `LOCAL_INSIGHT_V1`，未来可替换为真实大模型 Provider。

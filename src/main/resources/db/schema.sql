@@ -153,3 +153,20 @@ CREATE TABLE IF NOT EXISTS ai_suggestion_request (
         REFERENCES app_user (id) ON DELETE CASCADE,
     KEY idx_ai_suggestion_owner_created (owner_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS conversation_insight (
+    conversation_id CHAR(36) NOT NULL PRIMARY KEY,
+    owner_id CHAR(36) NOT NULL,
+    content_hash CHAR(64) NOT NULL,
+    summary_text VARCHAR(2000) NOT NULL,
+    highlights_data TEXT NOT NULL,
+    action_items_data TEXT NOT NULL,
+    keywords_data TEXT NOT NULL,
+    tone VARCHAR(32) NOT NULL,
+    generated_by VARCHAR(40) NOT NULL,
+    message_count INT NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    KEY idx_conversation_insight_owner (owner_id, updated_at),
+    CONSTRAINT fk_conversation_insight_conversation FOREIGN KEY (conversation_id)
+        REFERENCES conversation (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
