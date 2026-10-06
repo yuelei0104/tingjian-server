@@ -1,6 +1,7 @@
 package com.tingjian.server.config;
 
 import com.tingjian.server.service.RealtimeWebSocketHandler;
+import com.tingjian.server.service.CloudAsrWebSocketHandler;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -10,14 +11,17 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @EnableWebSocket
 public class RealtimeWebSocketConfig implements WebSocketConfigurer {
     private final RealtimeWebSocketHandler handler;
+    private final CloudAsrWebSocketHandler cloudAsrHandler;
     private final RealtimeHandshakeInterceptor handshakeInterceptor;
     private final CorsProperties corsProperties;
 
     public RealtimeWebSocketConfig(
             RealtimeWebSocketHandler handler,
+            CloudAsrWebSocketHandler cloudAsrHandler,
             RealtimeHandshakeInterceptor handshakeInterceptor,
             CorsProperties corsProperties) {
         this.handler = handler;
+        this.cloudAsrHandler = cloudAsrHandler;
         this.handshakeInterceptor = handshakeInterceptor;
         this.corsProperties = corsProperties;
     }
@@ -25,6 +29,9 @@ public class RealtimeWebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(handler, "/ws/realtime")
+                .addInterceptors(handshakeInterceptor)
+                .setAllowedOriginPatterns(corsProperties.allowedOriginPatterns());
+        registry.addHandler(cloudAsrHandler, "/ws/v1/speech/asr")
                 .addInterceptors(handshakeInterceptor)
                 .setAllowedOriginPatterns(corsProperties.allowedOriginPatterns());
     }

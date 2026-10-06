@@ -1,11 +1,13 @@
 package com.tingjian.server.service.ai;
 
 import com.tingjian.server.dto.AiContextMessageRequest;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.Locale;
 
 @Component
+@ConditionalOnProperty(name = "tingjian.ai.provider", havingValue = "local", matchIfMissing = true)
 public class LocalTemplateAiProvider implements AiExpressionProvider {
     @Override
     public AiProviderResult suggest(AiProviderInput input) {

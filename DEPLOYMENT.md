@@ -36,3 +36,15 @@ Flyway 使用 `db/migration/V1__baseline.sql`。新数据库会创建完整结�
 - `TINGJIAN_CORS_ALLOWED_ORIGINS` 只填写真实前端域名，多个域名使用英文逗号分隔；
 - Actuator 仅公开 `health` 和 `info`，健康详情不会返回数据库凭据；
 - 日志不记录 Authorization、验证码、密码或请求正文。
+## 云端 AI 与语音
+
+云服务默认关闭，因此缺少密钥不会影响应用启动。创建阿里云百炼 API Key 后再启用：
+
+```env
+DASHSCOPE_API_KEY=replace-me
+TINGJIAN_AI_PROVIDER=qwen
+TINGJIAN_ASR_PROVIDER=aliyun
+```
+
+生产环境建议配置华北 2（北京）的业务空间专属地址，不要把密钥或业务空间 ID
+提交到源码。Android 会保留系统语音识别和系统 TTS 作为自动降级方案。
