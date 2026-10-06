@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: tingjian-ai-speech
+
+server:
+  port: ${TINGJIAN_AI_SPEECH_PORT:8092}
+
+tingjian:
+  ai:
+    qwen:
+      api-key: ${TINGJIAN_QWEN_API_KEY:}
+      model: ${TINGJIAN_QWEN_MODEL:qwen-plus}
+  speech:
+    asr:
+      api-key: ${TINGJIAN_ASR_API_KEY:${TINGJIAN_QWEN_API_KEY:}}
+      model: ${TINGJIAN_ASR_MODEL:paraformer-realtime-v2}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never

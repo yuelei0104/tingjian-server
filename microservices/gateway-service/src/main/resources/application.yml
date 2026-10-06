@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: tingjian-gateway
+
+server:
+  port: ${TINGJIAN_GATEWAY_PORT:8088}
+
+tingjian:
+  routes:
+    legacy-http: ${TINGJIAN_LEGACY_HTTP_URL:http://127.0.0.1:8080}
+    legacy-websocket: ${TINGJIAN_LEGACY_WS_URL:ws://127.0.0.1:8080}
+    ai-speech: ${TINGJIAN_AI_SPEECH_URL:http://127.0.0.1:8092}
+    usage: ${TINGJIAN_USAGE_URL:http://127.0.0.1:8093}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
