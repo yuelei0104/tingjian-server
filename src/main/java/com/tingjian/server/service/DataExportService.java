@@ -4,6 +4,7 @@ import com.tingjian.server.common.BusinessException;
 import com.tingjian.server.common.ErrorCode;
 import com.tingjian.server.dao.SessionDao;
 import com.tingjian.server.dao.UserDao;
+import com.tingjian.server.dao.UserPhoneDao;
 import com.tingjian.server.dto.AccountExportResponse;
 import com.tingjian.server.dto.ConversationExportResponse;
 import com.tingjian.server.dto.MessageExportResponse;
@@ -23,6 +24,7 @@ public class DataExportService {
     private final QuickPhraseService quickPhraseService;
     private final UserPreferenceService userPreferenceService;
     private final AccessibilityPreferenceService accessibilityPreferenceService;
+    private final UserPhoneDao userPhoneDao;
 
     public DataExportService(
             UserDao userDao,
@@ -31,7 +33,8 @@ public class DataExportService {
             GlossaryService glossaryService,
             QuickPhraseService quickPhraseService,
             UserPreferenceService userPreferenceService,
-            AccessibilityPreferenceService accessibilityPreferenceService) {
+            AccessibilityPreferenceService accessibilityPreferenceService,
+            UserPhoneDao userPhoneDao) {
         this.userDao = userDao;
         this.sessionDao = sessionDao;
         this.keywordService = keywordService;
@@ -39,6 +42,7 @@ public class DataExportService {
         this.quickPhraseService = quickPhraseService;
         this.userPreferenceService = userPreferenceService;
         this.accessibilityPreferenceService = accessibilityPreferenceService;
+        this.userPhoneDao = userPhoneDao;
     }
 
     @Transactional(readOnly = true)
@@ -57,7 +61,10 @@ public class DataExportService {
                 .toList();
         return new PrivacyExportResponse(
                 LocalDateTime.now(ZoneOffset.UTC),
-                new AccountExportResponse(user.email(), user.displayName(), user.createdAt()),
+                new AccountExportResponse(
+                        user.email(),
+                        userPhoneDao.findByUserId(ownerId).map(phone -> phone.phone()).orElse(null),
+                        user.displayName(), user.createdAt()),
                 conversations,
                 keywordService.list(ownerId),
                 glossaryService.list(ownerId),

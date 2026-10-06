@@ -29,15 +29,16 @@ class AccessTokenInterceptorTests {
     @Test
     void validBearerTokenAddsCurrentUserToRequest() {
         when(request.getHeader("Authorization")).thenReturn("Bearer access-token");
-        when(authSessionDao.findActiveUserIdByAccessToken(any(), any(LocalDateTime.class)))
-                .thenReturn(Optional.of("user-1"));
+        when(authSessionDao.findActivePrincipalByAccessToken(any(), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(new AuthPrincipal("user-1", "session-1")));
 
         assertTrue(interceptor.preHandle(request, response, new Object()));
 
-        verify(authSessionDao).findActiveUserIdByAccessToken(
+        verify(authSessionDao).findActivePrincipalByAccessToken(
                 org.mockito.ArgumentMatchers.eq(TokenGenerator.hash("access-token")),
                 any(LocalDateTime.class));
         verify(request).setAttribute(AccessTokenInterceptor.USER_ID_ATTRIBUTE, "user-1");
+        verify(request).setAttribute(AccessTokenInterceptor.SESSION_ID_ATTRIBUTE, "session-1");
     }
 
     @Test
@@ -53,7 +54,7 @@ class AccessTokenInterceptorTests {
     @Test
     void expiredOrRevokedTokenIsRejected() {
         when(request.getHeader("Authorization")).thenReturn("Bearer expired-token");
-        when(authSessionDao.findActiveUserIdByAccessToken(any(), any(LocalDateTime.class)))
+        when(authSessionDao.findActivePrincipalByAccessToken(any(), any(LocalDateTime.class)))
                 .thenReturn(Optional.empty());
 
         var exception = assertThrows(BusinessException.class,

@@ -2,8 +2,10 @@ package com.tingjian.server.service;
 
 import com.tingjian.server.common.BusinessException;
 import com.tingjian.server.dao.AuthSessionDao;
+import com.tingjian.server.dao.AuthSessionMetadataDao;
 import com.tingjian.server.dao.PrivacyDao;
 import com.tingjian.server.dao.UserDao;
+import com.tingjian.server.dao.UserPhoneDao;
 import com.tingjian.server.entity.AuthSessionEntity;
 import com.tingjian.server.entity.UserEntity;
 import com.tingjian.server.util.PasswordHasher;
@@ -29,7 +31,12 @@ class AccountServiceTests {
     private final UserDao userDao = mock(UserDao.class);
     private final AuthSessionDao authSessionDao = mock(AuthSessionDao.class);
     private final PrivacyDao privacyDao = mock(PrivacyDao.class);
-    private final AccountService service = new AccountService(userDao, authSessionDao, privacyDao);
+    private final UserPhoneDao userPhoneDao = mock(UserPhoneDao.class);
+    private final AuthSessionMetadataDao sessionMetadataDao = mock(AuthSessionMetadataDao.class);
+    private final VerificationCodeService verificationCodeService = mock(VerificationCodeService.class);
+    private final AccountService service = new AccountService(
+            userDao, authSessionDao, privacyDao, userPhoneDao,
+            sessionMetadataDao, verificationCodeService);
 
     @Test
     void updateProfileTrimsAndReturnsLatestUser() {
@@ -110,10 +117,11 @@ class AccountServiceTests {
                 new AuthSessionEntity("session-1", "owner", "a", "r",
                         now.plusMinutes(30), now.plusDays(30), null, now, now)));
 
-        var sessions = service.sessions("owner");
+        var sessions = service.sessions("owner", "session-1");
 
         assertEquals(1, sessions.size());
         assertEquals("session-1", sessions.getFirst().id());
+        assertEquals(true, sessions.getFirst().current());
     }
 
     @Test
@@ -123,6 +131,28 @@ class AccountServiceTests {
         service.revokeSession("owner", "session-1");
 
         verify(authSessionDao).revokeByIdAndUserId(eq("session-1"), eq("owner"), any());
+    }
+
+    @Test
+    void revokeOtherSessionsKeepsCurrentSession() {
+        when(userDao.findById("owner")).thenReturn(Optional.of(user("correct-password")));
+
+        service.revokeOtherSessions("owner", "current-session");
+
+        verify(authSessionDao).revokeOtherSessions(
+                eq("owner"), eq("current-session"), any());
+    }
+
+    @Test
+    void phoneBindingRequiresSmsChallenge() {
+        when(userDao.findById("owner")).thenReturn(Optional.of(user("correct-password")));
+
+        service.bindPhone("owner", "+8613800138000", "verification-id", "123456");
+
+        verify(verificationCodeService).verifySmsAndConsume(
+                "verification-id", "123456", "+8613800138000",
+                VerificationCodeService.BIND_PHONE);
+        verify(userPhoneDao).upsert(eq("owner"), eq("+8613800138000"), any());
     }
 
     private static UserEntity user(String password) {

@@ -2,6 +2,7 @@ package com.tingjian.server.service;
 
 import com.tingjian.server.dao.SessionDao;
 import com.tingjian.server.dao.UserDao;
+import com.tingjian.server.dao.UserPhoneDao;
 import com.tingjian.server.dto.GlossaryResponse;
 import com.tingjian.server.dto.KeywordResponse;
 import com.tingjian.server.dto.QuickPhraseResponse;
@@ -31,9 +32,10 @@ class DataExportServiceTests {
     private final UserPreferenceService preferenceService = mock(UserPreferenceService.class);
     private final AccessibilityPreferenceService accessibilityPreferenceService =
             mock(AccessibilityPreferenceService.class);
+    private final UserPhoneDao userPhoneDao = mock(UserPhoneDao.class);
     private final DataExportService service = new DataExportService(
             userDao, sessionDao, keywordService, glossaryService, quickPhraseService,
-            preferenceService, accessibilityPreferenceService);
+            preferenceService, accessibilityPreferenceService, userPhoneDao);
 
     @Test
     void exportCollectsOwnedAccountConversationsAndPersonalization() {

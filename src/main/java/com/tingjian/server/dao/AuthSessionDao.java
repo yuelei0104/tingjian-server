@@ -1,6 +1,7 @@
 package com.tingjian.server.dao;
 
 import com.tingjian.server.entity.AuthSessionEntity;
+import com.tingjian.server.config.AuthPrincipal;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -52,6 +53,16 @@ public class AuthSessionDao {
                 .stream().findFirst();
     }
 
+    public Optional<AuthPrincipal> findActivePrincipalByAccessToken(
+            String accessTokenHash, LocalDateTime now) {
+        return jdbc.query("""
+                SELECT user_id, id FROM auth_session
+                WHERE access_token_hash=? AND revoked_at IS NULL AND access_expires_at>?
+                """, (rs, row) -> new AuthPrincipal(
+                rs.getString("user_id"), rs.getString("id")), accessTokenHash, now)
+                .stream().findFirst();
+    }
+
     public int rotate(AuthSessionEntity entity) {
         return jdbc.update("""
                 UPDATE auth_session
@@ -85,6 +96,13 @@ public class AuthSessionDao {
                 UPDATE auth_session SET revoked_at=?, updated_at=?
                 WHERE id=? AND user_id=? AND revoked_at IS NULL
                 """, now, now, id, userId);
+    }
+
+    public int revokeOtherSessions(String userId, String currentSessionId, LocalDateTime now) {
+        return jdbc.update("""
+                UPDATE auth_session SET revoked_at=?, updated_at=?
+                WHERE user_id=? AND id<>? AND revoked_at IS NULL
+                """, now, now, userId, currentSessionId);
     }
 
     private AuthSessionEntity mapRow(ResultSet rs, int row) throws SQLException {

@@ -20,6 +20,10 @@ public class AccessTokenService {
     }
 
     public String resolveUserId(String authorization) {
+        return resolvePrincipal(authorization).userId();
+    }
+
+    public AuthPrincipal resolvePrincipal(String authorization) {
         if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
             throw new BusinessException(ErrorCode.AUTH_INVALID_TOKEN);
         }
@@ -27,7 +31,7 @@ public class AccessTokenService {
         if (accessToken.isEmpty()) {
             throw new BusinessException(ErrorCode.AUTH_INVALID_TOKEN);
         }
-        return authSessionDao.findActiveUserIdByAccessToken(
+        return authSessionDao.findActivePrincipalByAccessToken(
                         TokenGenerator.hash(accessToken), LocalDateTime.now(ZoneOffset.UTC))
                 .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_INVALID_TOKEN));
     }

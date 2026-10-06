@@ -2,9 +2,12 @@ package com.tingjian.server.controller;
 
 import com.tingjian.server.common.ApiResponse;
 import com.tingjian.server.dto.AuthTokenResponse;
+import com.tingjian.server.dto.AuthClientInfo;
 import com.tingjian.server.dto.EmailVerificationRequest;
 import com.tingjian.server.dto.LoginRequest;
 import com.tingjian.server.dto.PasswordResetRequest;
+import com.tingjian.server.dto.PhoneVerificationRequest;
+import com.tingjian.server.dto.SmsPasswordResetRequest;
 import com.tingjian.server.dto.RefreshTokenRequest;
 import com.tingjian.server.dto.RegisterRequest;
 import com.tingjian.server.dto.VerificationChallengeResponse;
@@ -29,14 +32,15 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<AuthTokenResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ApiResponse.success(authService.register(request));
+    public ApiResponse<AuthTokenResponse> register(
+            @Valid @RequestBody RegisterRequest request, HttpServletRequest servletRequest) {
+        return ApiResponse.success(authService.register(request, clientInfo(servletRequest)));
     }
 
     @PostMapping("/login")
     public ApiResponse<AuthTokenResponse> login(
             @Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
-        return ApiResponse.success(authService.login(request, clientIp(servletRequest)));
+        return ApiResponse.success(authService.login(request, clientInfo(servletRequest)));
     }
 
     @PostMapping("/email-verification/request")
@@ -61,6 +65,21 @@ public class AuthController {
         return ApiResponse.success(null);
     }
 
+    @PostMapping("/password/forgot/sms")
+    public ApiResponse<VerificationChallengeResponse> forgotPasswordBySms(
+            @Valid @RequestBody PhoneVerificationRequest request,
+            HttpServletRequest servletRequest) {
+        return ApiResponse.success(authService.requestSmsPasswordReset(
+                request.phone(), clientIp(servletRequest)));
+    }
+
+    @PostMapping("/password/reset/sms")
+    public ApiResponse<Void> resetPasswordBySms(
+            @Valid @RequestBody SmsPasswordResetRequest request) {
+        authService.resetPasswordBySms(request);
+        return ApiResponse.success(null);
+    }
+
     @PostMapping("/refresh")
     public ApiResponse<AuthTokenResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return ApiResponse.success(authService.refresh(request.refreshToken()));
@@ -75,5 +94,19 @@ public class AuthController {
     private static String clientIp(HttpServletRequest request) {
         // Do not trust X-Forwarded-For here unless the deployment has a trusted-proxy filter.
         return request.getRemoteAddr();
+    }
+
+    private static AuthClientInfo clientInfo(HttpServletRequest request) {
+        return new AuthClientInfo(
+                header(request, "X-Device-Id"),
+                header(request, "X-Device-Name"),
+                header(request, "X-Platform"),
+                header(request, "X-App-Version"),
+                clientIp(request));
+    }
+
+    private static String header(HttpServletRequest request, String name) {
+        String value = request.getHeader(name);
+        return value == null ? "" : value;
     }
 }

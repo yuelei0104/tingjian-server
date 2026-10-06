@@ -2,10 +2,13 @@ package com.tingjian.server.service;
 
 import com.tingjian.server.common.BusinessException;
 import com.tingjian.server.dao.AuthSessionDao;
+import com.tingjian.server.dao.AuthSessionMetadataDao;
 import com.tingjian.server.dao.UserDao;
+import com.tingjian.server.dao.UserPhoneDao;
 import com.tingjian.server.dto.LoginRequest;
 import com.tingjian.server.dto.PasswordResetRequest;
 import com.tingjian.server.dto.RegisterRequest;
+import com.tingjian.server.dto.SmsPasswordResetRequest;
 import com.tingjian.server.entity.UserEntity;
 import com.tingjian.server.util.PasswordHasher;
 import com.tingjian.server.util.TokenGenerator;
@@ -29,8 +32,13 @@ class AuthServiceTests {
     private final AuthSessionDao authSessionDao = mock(AuthSessionDao.class);
     private final VerificationCodeService verificationCodeService = mock(VerificationCodeService.class);
     private final AuthRateLimitService rateLimitService = mock(AuthRateLimitService.class);
+    private final UserPhoneDao userPhoneDao = mock(UserPhoneDao.class);
+    private final AuthSessionMetadataDao sessionMetadataDao = mock(AuthSessionMetadataDao.class);
+    private final SecurityNotificationGateway notificationGateway =
+            mock(SecurityNotificationGateway.class);
     private final AuthService service = new AuthService(
-            userDao, authSessionDao, verificationCodeService, rateLimitService);
+            userDao, authSessionDao, verificationCodeService, rateLimitService,
+            userPhoneDao, sessionMetadataDao, notificationGateway);
 
     @Test
     void registerNormalizesEmailAndHashesPassword() {
@@ -93,6 +101,25 @@ class AuthServiceTests {
                 "verification-id", "123456", "user@example.com",
                 VerificationCodeService.RESET_PASSWORD);
         verify(userDao).updatePassword(eq("id"), any(), any());
+        verify(authSessionDao).deleteByUserId("id");
+    }
+
+    @Test
+    void smsPasswordResetUsesBoundPhoneAndRevokesSessions() {
+        var user = new UserEntity(
+                "id", "user@example.com", PasswordHasher.hash("old-password"),
+                "User", "ACTIVE", LocalDateTime.now(), LocalDateTime.now());
+        when(userPhoneDao.findUserIdByPhone("+8613800138000"))
+                .thenReturn(Optional.of("id"));
+        when(userDao.findById("id")).thenReturn(Optional.of(user));
+        when(userDao.updatePassword(eq("id"), any(), any())).thenReturn(1);
+
+        service.resetPasswordBySms(new SmsPasswordResetRequest(
+                "+8613800138000", "verification-id", "123456", "new-password"));
+
+        verify(verificationCodeService).verifySmsAndConsume(
+                "verification-id", "123456", "+8613800138000",
+                VerificationCodeService.RESET_PASSWORD);
         verify(authSessionDao).deleteByUserId("id");
     }
 }

@@ -105,6 +105,16 @@ CREATE TABLE IF NOT EXISTS auth_verification_code (
     KEY idx_verification_expiry (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS user_phone (
+    user_id CHAR(36) NOT NULL PRIMARY KEY,
+    phone VARCHAR(20) NOT NULL,
+    verified_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_user_phone (phone),
+    CONSTRAINT fk_user_phone_user FOREIGN KEY (user_id)
+        REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS auth_session (
     id CHAR(36) NOT NULL PRIMARY KEY,
     user_id CHAR(36) NOT NULL,
@@ -119,6 +129,22 @@ CREATE TABLE IF NOT EXISTS auth_session (
     UNIQUE KEY uq_auth_refresh_token (refresh_token_hash),
     KEY idx_auth_user_active (user_id, revoked_at, refresh_expires_at),
     CONSTRAINT fk_auth_session_user FOREIGN KEY (user_id)
+        REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auth_session_metadata (
+    session_id CHAR(36) NOT NULL PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    device_id_hash CHAR(64) NULL,
+    device_name VARCHAR(80) NOT NULL,
+    platform VARCHAR(40) NOT NULL,
+    app_version VARCHAR(24) NOT NULL,
+    ip_address VARCHAR(64) NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    KEY idx_session_metadata_device (user_id, device_id_hash),
+    CONSTRAINT fk_session_metadata_session FOREIGN KEY (session_id)
+        REFERENCES auth_session (id) ON DELETE CASCADE,
+    CONSTRAINT fk_session_metadata_user FOREIGN KEY (user_id)
         REFERENCES app_user (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -24,6 +24,7 @@ import java.util.Locale;
 public class VerificationCodeService {
     public static final String REGISTER = "REGISTER";
     public static final String RESET_PASSWORD = "RESET_PASSWORD";
+    public static final String BIND_PHONE = "BIND_PHONE";
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -49,17 +50,27 @@ public class VerificationCodeService {
     @Transactional
     public VerificationChallengeResponse issueEmail(
             String email, String purpose, String clientIp, boolean deliver) {
-        String destination = normalizeEmail(email);
+        return issue("EMAIL", normalizeEmail(email), purpose, clientIp, deliver);
+    }
+
+    @Transactional
+    public VerificationChallengeResponse issueSms(
+            String phone, String purpose, String clientIp, boolean deliver) {
+        return issue("SMS", normalizePhone(phone), purpose, clientIp, deliver);
+    }
+
+    private VerificationChallengeResponse issue(
+            String channel, String destination, String purpose, String clientIp, boolean deliver) {
         rateLimitService.checkAndRecordCodeRequest(destination, clientIp);
         String id = IdGenerator.uuid();
         String code = "%06d".formatted(RANDOM.nextInt(1_000_000));
         LocalDateTime now = now();
         LocalDateTime expiresAt = now.plusMinutes(validMinutes);
         dao.create(new VerificationCodeEntity(
-                id, "EMAIL", destination, purpose, hash(id, code), 0,
+                id, channel, destination, purpose, hash(id, code), 0,
                 expiresAt, null, now));
         if (deliver) {
-            deliveryGateway.send("EMAIL", destination, purpose, code, validMinutes);
+            deliveryGateway.send(channel, destination, purpose, code, validMinutes);
         }
         return new VerificationChallengeResponse(id, expiresAt);
     }
@@ -67,15 +78,27 @@ public class VerificationCodeService {
     @Transactional
     public void verifyAndConsume(
             String verificationId, String code, String destination, String purpose) {
+        verifyAndConsume(
+                verificationId, code, normalizeEmail(destination), purpose, "EMAIL");
+    }
+
+    @Transactional
+    public void verifySmsAndConsume(
+            String verificationId, String code, String phone, String purpose) {
+        verifyAndConsume(verificationId, code, normalizePhone(phone), purpose, "SMS");
+    }
+
+    private void verifyAndConsume(
+            String verificationId, String code, String destination, String purpose, String channel) {
         LocalDateTime now = now();
         VerificationCodeEntity challenge = dao.findForUpdate(verificationId)
                 .orElseThrow(this::invalidCode);
         boolean metadataMatches = challenge.consumedAt() == null
                 && challenge.expiresAt().isAfter(now)
                 && challenge.failedAttempts() < MAX_FAILED_ATTEMPTS
-                && challenge.destination().equals(normalizeEmail(destination))
+                && challenge.destination().equals(destination)
                 && challenge.purpose().equals(purpose)
-                && challenge.channel().equals("EMAIL");
+                && challenge.channel().equals(channel);
         if (!metadataMatches || !constantTimeEquals(challenge.codeHash(), hash(verificationId, code))) {
             if (challenge.consumedAt() == null) {
                 dao.incrementFailedAttempts(verificationId);
@@ -109,6 +132,10 @@ public class VerificationCodeService {
 
     private static String normalizeEmail(String email) {
         return email.strip().toLowerCase(Locale.ROOT);
+    }
+
+    private static String normalizePhone(String phone) {
+        return phone.strip().replace(" ", "");
     }
 
     private static LocalDateTime now() {

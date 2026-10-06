@@ -19,6 +19,8 @@ public enum ErrorCode {
     AUTH_TOO_MANY_ATTEMPTS(HttpStatus.TOO_MANY_REQUESTS, "尝试次数过多，请稍后再试"),
     VERIFICATION_CODE_INVALID(HttpStatus.BAD_REQUEST, "验证码无效或已过期"),
     VERIFICATION_CODE_TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "验证码发送过于频繁，请稍后再试"),
+    PHONE_ALREADY_BOUND(HttpStatus.CONFLICT, "该手机号已绑定其他账号"),
+    PHONE_NOT_BOUND(HttpStatus.NOT_FOUND, "账号尚未绑定手机号"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "服务器内部错误");
 
     private final HttpStatus status;

@@ -11,12 +11,15 @@ import java.util.List;
 public class WebMvcConfig implements WebMvcConfigurer {
     private final AccessTokenInterceptor accessTokenInterceptor;
     private final CurrentUserIdArgumentResolver currentUserIdArgumentResolver;
+    private final CurrentSessionIdArgumentResolver currentSessionIdArgumentResolver;
 
     public WebMvcConfig(
             AccessTokenInterceptor accessTokenInterceptor,
-            CurrentUserIdArgumentResolver currentUserIdArgumentResolver) {
+            CurrentUserIdArgumentResolver currentUserIdArgumentResolver,
+            CurrentSessionIdArgumentResolver currentSessionIdArgumentResolver) {
         this.accessTokenInterceptor = accessTokenInterceptor;
         this.currentUserIdArgumentResolver = currentUserIdArgumentResolver;
+        this.currentSessionIdArgumentResolver = currentSessionIdArgumentResolver;
     }
 
     @Override
@@ -27,5 +30,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(currentUserIdArgumentResolver);
+        resolvers.add(currentSessionIdArgumentResolver);
     }
 }
