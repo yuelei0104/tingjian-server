@@ -48,3 +48,18 @@ TINGJIAN_ASR_PROVIDER=aliyun
 
 生产环境建议配置华北 2（北京）的业务空间专属地址，不要把密钥或业务空间 ID
 提交到源码。Android 会保留系统语音识别和系统 TTS 作为自动降级方案。
+
+## 微服务用量闭环
+
+先启动 `microservices/usage-service`，确认
+`http://127.0.0.1:8093/actuator/health` 正常，再启用单体到用量服务的调用：
+
+```env
+TINGJIAN_USAGE_SERVICE_ENABLED=true
+TINGJIAN_USAGE_SERVICE_URL=http://127.0.0.1:8093
+TINGJIAN_USAGE_FAIL_OPEN=true
+```
+
+AI 建议按成功的云端请求计量；本地模板或云端降级不会消耗 AI 额度。云端 ASR
+按 30 秒块预占，开始上传音频后确认，未上传音频则释放。迁移期默认 `fail-open=true`，
+用量服务短暂不可用时主业务仍可继续；生产监控与持久化完成后可切换为 `false`。

@@ -1,6 +1,10 @@
 package com.tingjian.server.service;
 
+import com.tingjian.server.common.BusinessException;
 import com.tingjian.server.config.CloudAsrProperties;
+import com.tingjian.server.config.RealtimeHandshakeInterceptor;
+import com.tingjian.server.service.usage.AsrUsageWindow;
+import com.tingjian.server.service.usage.UsageReservationGateway;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
@@ -22,11 +26,17 @@ public class CloudAsrWebSocketHandler extends BinaryWebSocketHandler {
 
     private final CloudAsrProperties properties;
     private final ObjectMapper mapper;
+    private final UsageReservationGateway usageGateway;
     private final Map<String, AliyunAsrConnection> connections = new ConcurrentHashMap<>();
+    private final Map<String, AsrUsageWindow> usageWindows = new ConcurrentHashMap<>();
 
-    public CloudAsrWebSocketHandler(CloudAsrProperties properties, ObjectMapper mapper) {
+    public CloudAsrWebSocketHandler(
+            CloudAsrProperties properties,
+            ObjectMapper mapper,
+            UsageReservationGateway usageGateway) {
         this.properties = properties;
         this.mapper = mapper;
+        this.usageGateway = usageGateway;
     }
 
     @Override
@@ -35,6 +45,19 @@ public class CloudAsrWebSocketHandler extends BinaryWebSocketHandler {
             send(session, event("ERROR", Map.of(
                     "code", "CLOUD_NOT_CONFIGURED",
                     "message", "云端识别尚未配置，将使用设备识别")));
+            session.close(CloseStatus.POLICY_VIOLATION);
+            return;
+        }
+        String userId = (String) session.getAttributes().get(
+                RealtimeHandshakeInterceptor.USER_ID_ATTRIBUTE);
+        AsrUsageWindow usageWindow = new AsrUsageWindow(usageGateway, userId, session.getId());
+        try {
+            usageWindow.start();
+            usageWindows.put(session.getId(), usageWindow);
+        } catch (BusinessException exception) {
+            send(session, event("ERROR", Map.of(
+                    "code", exception.errorCode().name(),
+                    "message", exception.getMessage())));
             session.close(CloseStatus.POLICY_VIOLATION);
             return;
         }
@@ -54,12 +77,14 @@ public class CloudAsrWebSocketHandler extends BinaryWebSocketHandler {
                     @Override
                     public void onFailure(String code, String message) {
                         send(session, event("ERROR", Map.of("code", code, "message", message)));
+                        finishUsage(session.getId());
                         close(session, CloseStatus.SERVER_ERROR);
                     }
 
                     @Override
                     public void onComplete() {
                         send(session, event("COMPLETE", Map.of()));
+                        finishUsage(session.getId());
                         close(session, CloseStatus.NORMAL);
                     }
                 });
@@ -82,6 +107,17 @@ public class CloudAsrWebSocketHandler extends BinaryWebSocketHandler {
         byte[] audio = new byte[payload.remaining()];
         payload.get(audio);
         connection.sendAudio(audio);
+        AsrUsageWindow usageWindow = usageWindows.get(session.getId());
+        if (usageWindow == null) return;
+        try {
+            usageWindow.recordAudioBytes(audio.length);
+        } catch (BusinessException exception) {
+            send(session, event("ERROR", Map.of(
+                    "code", exception.errorCode().name(),
+                    "message", exception.getMessage())));
+            finishUsage(session.getId());
+            close(session, CloseStatus.POLICY_VIOLATION);
+        }
     }
 
     @Override
@@ -93,8 +129,14 @@ public class CloudAsrWebSocketHandler extends BinaryWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        finishUsage(session.getId());
         AliyunAsrConnection connection = connections.remove(session.getId());
         if (connection != null) connection.abort();
+    }
+
+    private void finishUsage(String sessionId) {
+        AsrUsageWindow usageWindow = usageWindows.remove(sessionId);
+        if (usageWindow != null) usageWindow.finish();
     }
 
     private Map<String, Object> event(String type, Map<String, Object> data) {

@@ -14,6 +14,7 @@ import com.tingjian.server.service.ai.AiInputSanitizer;
 import com.tingjian.server.service.ai.AiProviderInput;
 import com.tingjian.server.service.ai.AiProviderResult;
 import com.tingjian.server.service.ai.LocalTemplateAiProvider;
+import com.tingjian.server.service.usage.UsageReservationGateway;
 import com.tingjian.server.util.TokenGenerator;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -31,11 +32,17 @@ public class AiSuggestionService {
     private final AiSuggestionDao dao;
     private final SessionDao sessionDao;
     private final AiExpressionProvider provider;
+    private final UsageReservationGateway usageGateway;
 
-    public AiSuggestionService(AiSuggestionDao dao, SessionDao sessionDao, AiExpressionProvider provider) {
+    public AiSuggestionService(
+            AiSuggestionDao dao,
+            SessionDao sessionDao,
+            AiExpressionProvider provider,
+            UsageReservationGateway usageGateway) {
         this.dao = dao;
         this.sessionDao = sessionDao;
         this.provider = provider;
+        this.usageGateway = usageGateway;
     }
 
     @Transactional
@@ -57,7 +64,21 @@ public class AiSuggestionService {
         AiSuggestionRequestEntity existing = dao.find(ownerId, request.clientRequestId()).orElse(null);
         if (existing != null) return existingResponse(existing, inputHash);
 
+        UsageReservationGateway.Reservation usageReservation = provider.billable()
+                ? usageGateway.reserve(
+                        ownerId,
+                        UsageReservationGateway.Metric.AI_REQUESTS,
+                        1,
+                        "ai:" + request.clientRequestId())
+                : UsageReservationGateway.Reservation.unmetered();
         AiProviderResult result = invokeProvider(input);
+        if (usageReservation.metered()) {
+            if (result.fallback()) {
+                usageGateway.release(usageReservation);
+            } else {
+                usageGateway.commit(usageReservation);
+            }
+        }
         String suggestion = AiInputSanitizer.clip(AiInputSanitizer.sanitize(result.suggestion()), 1000);
         LocalDateTime now = LocalDateTime.now();
         int inputCharacters = sourceText.length()

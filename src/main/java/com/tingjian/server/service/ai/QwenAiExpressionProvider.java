@@ -57,6 +57,11 @@ public class QwenAiExpressionProvider implements AiExpressionProvider {
         return new AiProviderResult(content.strip(), "QWEN:" + properties.model(), false);
     }
 
+    @Override
+    public boolean billable() {
+        return true;
+    }
+
     static List<ChatMessage> messages(AiProviderInput input) {
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(new ChatMessage("system", systemPrompt(input)));

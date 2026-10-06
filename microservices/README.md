@@ -60,3 +60,14 @@ java -jar .\microservices\usage-service\target\usage-service-0.1.0-SNAPSHOT.jar
 4. 再拆账号与会话服务；到这一步才分别迁移数据库表和引入可靠事件/消息队列。
 
 > `usage-service` 当前使用进程内存储，只用于验证接口与业务规则。生产部署前应替换为 MySQL/Redis，并限制 `/internal/**` 只能由网关或服务网络访问。
+
+根目录单体已经提供可开关的用量服务客户端。启动 `usage-service` 后设置：
+
+```env
+TINGJIAN_USAGE_SERVICE_ENABLED=true
+TINGJIAN_USAGE_SERVICE_URL=http://127.0.0.1:8093
+TINGJIAN_USAGE_FAIL_OPEN=true
+```
+
+AI 请求按次预占；云端成功后确认，本地降级时释放。云端 ASR 按 30 秒块预占，
+上传过音频的块会确认，空块会释放。默认关闭，因此不启动微服务时原有开发流程不受影响。
