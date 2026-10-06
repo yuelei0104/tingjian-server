@@ -11,18 +11,21 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 public class RealtimeWebSocketConfig implements WebSocketConfigurer {
     private final RealtimeWebSocketHandler handler;
     private final RealtimeHandshakeInterceptor handshakeInterceptor;
+    private final CorsProperties corsProperties;
 
     public RealtimeWebSocketConfig(
             RealtimeWebSocketHandler handler,
-            RealtimeHandshakeInterceptor handshakeInterceptor) {
+            RealtimeHandshakeInterceptor handshakeInterceptor,
+            CorsProperties corsProperties) {
         this.handler = handler;
         this.handshakeInterceptor = handshakeInterceptor;
+        this.corsProperties = corsProperties;
     }
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(handler, "/ws/realtime")
                 .addInterceptors(handshakeInterceptor)
-                .setAllowedOriginPatterns("*");
+                .setAllowedOriginPatterns(corsProperties.allowedOriginPatterns());
     }
 }

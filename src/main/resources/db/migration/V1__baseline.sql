@@ -1,0 +1,212 @@
+CREATE TABLE IF NOT EXISTS conversation (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    owner_id VARCHAR(64) NOT NULL,
+    title VARCHAR(80) NOT NULL,
+    status VARCHAR(16) NOT NULL,
+    started_at DATETIME(3) NOT NULL,
+    ended_at DATETIME(3) NULL,
+    KEY idx_conversation_owner_started (owner_id, started_at, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS conversation_message (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    conversation_id CHAR(36) NOT NULL,
+    speaker VARCHAR(16) NOT NULL,
+    content VARCHAR(2000) NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    KEY idx_conversation_message_order (conversation_id, created_at, id),
+    CONSTRAINT fk_message_conversation FOREIGN KEY (conversation_id)
+        REFERENCES conversation (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS conversation_message_delivery (
+    message_id CHAR(36) NOT NULL PRIMARY KEY,
+    conversation_id CHAR(36) NOT NULL,
+    client_message_id VARCHAR(64) NOT NULL,
+    sequence_no BIGINT NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_message_delivery_client (conversation_id, client_message_id),
+    UNIQUE KEY uq_message_delivery_sequence (conversation_id, sequence_no),
+    CONSTRAINT fk_delivery_message FOREIGN KEY (message_id)
+        REFERENCES conversation_message (id) ON DELETE CASCADE,
+    CONSTRAINT fk_delivery_conversation FOREIGN KEY (conversation_id)
+        REFERENCES conversation (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO conversation_message_delivery
+    (message_id, conversation_id, client_message_id, sequence_no, created_at)
+SELECT id, conversation_id, CONCAT('legacy-', id),
+       ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY created_at, id), created_at
+FROM conversation_message;
+
+CREATE TABLE IF NOT EXISTS keyword_rule (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    owner_id VARCHAR(64) NOT NULL,
+    phrase VARCHAR(100) NOT NULL,
+    vibration_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    priority INT NOT NULL DEFAULT 50,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_keyword_owner_phrase (owner_id, phrase),
+    KEY idx_keyword_owner_priority (owner_id, priority, updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS glossary_term (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    owner_id VARCHAR(64) NOT NULL,
+    term VARCHAR(100) NOT NULL,
+    alias VARCHAR(100) NULL,
+    language VARCHAR(16) NOT NULL,
+    category VARCHAR(40) NOT NULL,
+    priority INT NOT NULL DEFAULT 50,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_glossary_owner_term_language (owner_id, term, language),
+    KEY idx_glossary_owner_priority (owner_id, priority, term)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS quick_phrase (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    owner_id VARCHAR(64) NOT NULL,
+    content VARCHAR(500) NOT NULL,
+    category VARCHAR(40) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_quick_phrase_owner_content (owner_id, content),
+    KEY idx_quick_phrase_owner_sort (owner_id, sort_order, updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS app_user (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    email VARCHAR(254) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    display_name VARCHAR(40) NOT NULL,
+    status VARCHAR(16) NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_user_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auth_verification_code (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    channel VARCHAR(16) NOT NULL,
+    destination VARCHAR(254) NOT NULL,
+    purpose VARCHAR(32) NOT NULL,
+    code_hash CHAR(64) NOT NULL,
+    failed_attempts INT NOT NULL DEFAULT 0,
+    expires_at DATETIME(3) NOT NULL,
+    consumed_at DATETIME(3) NULL,
+    created_at DATETIME(3) NOT NULL,
+    KEY idx_verification_destination (destination, purpose, created_at),
+    KEY idx_verification_expiry (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_phone (
+    user_id CHAR(36) NOT NULL PRIMARY KEY,
+    phone VARCHAR(20) NOT NULL,
+    verified_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_user_phone (phone),
+    CONSTRAINT fk_user_phone_user FOREIGN KEY (user_id)
+        REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auth_session (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    access_token_hash CHAR(64) NOT NULL,
+    refresh_token_hash CHAR(64) NOT NULL,
+    access_expires_at DATETIME(3) NOT NULL,
+    refresh_expires_at DATETIME(3) NOT NULL,
+    revoked_at DATETIME(3) NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_auth_access_token (access_token_hash),
+    UNIQUE KEY uq_auth_refresh_token (refresh_token_hash),
+    KEY idx_auth_user_active (user_id, revoked_at, refresh_expires_at),
+    CONSTRAINT fk_auth_session_user FOREIGN KEY (user_id)
+        REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auth_session_metadata (
+    session_id CHAR(36) NOT NULL PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    device_id_hash CHAR(64) NULL,
+    device_name VARCHAR(80) NOT NULL,
+    platform VARCHAR(40) NOT NULL,
+    app_version VARCHAR(24) NOT NULL,
+    ip_address VARCHAR(64) NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    KEY idx_session_metadata_device (user_id, device_id_hash),
+    CONSTRAINT fk_session_metadata_session FOREIGN KEY (session_id)
+        REFERENCES auth_session (id) ON DELETE CASCADE,
+    CONSTRAINT fk_session_metadata_user FOREIGN KEY (user_id)
+        REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_preference (
+    owner_id CHAR(36) NOT NULL PRIMARY KEY,
+    large_text BOOLEAN NOT NULL DEFAULT FALSE,
+    voice_mode VARCHAR(16) NOT NULL DEFAULT '自动',
+    voice_style VARCHAR(16) NOT NULL DEFAULT '自然',
+    tts_speed DECIMAL(3,2) NOT NULL DEFAULT 1.00,
+    recognition_language VARCHAR(16) NOT NULL DEFAULT '中英混合',
+    keyword_vibration BOOLEAN NOT NULL DEFAULT TRUE,
+    keyword_highlight BOOLEAN NOT NULL DEFAULT TRUE,
+    auto_summary BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_at DATETIME(3) NOT NULL,
+    CONSTRAINT fk_preference_user FOREIGN KEY (owner_id)
+        REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS accessibility_preference (
+    owner_id CHAR(36) NOT NULL PRIMARY KEY,
+    high_contrast BOOLEAN NOT NULL DEFAULT FALSE,
+    visual_alerts BOOLEAN NOT NULL DEFAULT TRUE,
+    system_notifications BOOLEAN NOT NULL DEFAULT FALSE,
+    strong_vibration BOOLEAN NOT NULL DEFAULT FALSE,
+    caption_follow BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at DATETIME(3) NOT NULL,
+    CONSTRAINT fk_accessibility_preference_user FOREIGN KEY (owner_id)
+        REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS ai_suggestion_request (
+    owner_id CHAR(36) NOT NULL,
+    client_request_id VARCHAR(64) NOT NULL,
+    input_hash CHAR(64) NOT NULL,
+    action VARCHAR(24) NOT NULL,
+    language VARCHAR(16) NOT NULL,
+    suggestion VARCHAR(1000) NOT NULL,
+    provider VARCHAR(40) NOT NULL,
+    fallback BOOLEAN NOT NULL DEFAULT FALSE,
+    context_messages INT NOT NULL DEFAULT 0,
+    input_characters INT NOT NULL DEFAULT 0,
+    output_characters INT NOT NULL DEFAULT 0,
+    created_at DATETIME(3) NOT NULL,
+    PRIMARY KEY (owner_id, client_request_id),
+    CONSTRAINT fk_ai_suggestion_owner FOREIGN KEY (owner_id)
+        REFERENCES app_user (id) ON DELETE CASCADE,
+    KEY idx_ai_suggestion_owner_created (owner_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS conversation_insight (
+    conversation_id CHAR(36) NOT NULL PRIMARY KEY,
+    owner_id CHAR(36) NOT NULL,
+    content_hash CHAR(64) NOT NULL,
+    summary_text VARCHAR(2000) NOT NULL,
+    highlights_data TEXT NOT NULL,
+    action_items_data TEXT NOT NULL,
+    keywords_data TEXT NOT NULL,
+    tone VARCHAR(32) NOT NULL,
+    generated_by VARCHAR(40) NOT NULL,
+    message_count INT NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    KEY idx_conversation_insight_owner (owner_id, updated_at),
+    CONSTRAINT fk_conversation_insight_conversation FOREIGN KEY (conversation_id)
+        REFERENCES conversation (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
