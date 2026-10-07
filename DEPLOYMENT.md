@@ -80,3 +80,10 @@ AI 建议按成功的云端请求计量；本地模板或云端降级不会消�
 内部令牌。服务默认绑定 `127.0.0.1`；容器部署时再通过
 `TINGJIAN_USAGE_BIND_ADDRESS=0.0.0.0` 和
 `TINGJIAN_AI_SPEECH_BIND_ADDRESS=0.0.0.0` 在容器网络内开放。
+
+## 本地端到端验收
+
+Windows 环境可使用 `scripts/Start-TingjianStack.ps1` 启动完整 Compose 链路，随后运行
+`scripts/Test-TingjianStack.ps1`。脚本会检查网关健康状态、未登录拦截，并可使用已有
+测试账号验证首页、用量、会话、消息、结束会话与清理流程。详细命令见
+`SMOKE-TEST.md`。
