@@ -4,6 +4,12 @@ spring:
 
 server:
   port: ${TINGJIAN_USAGE_PORT:8093}
+  address: ${TINGJIAN_USAGE_BIND_ADDRESS:127.0.0.1}
+
+tingjian:
+  internal-auth:
+    enabled: ${TINGJIAN_INTERNAL_AUTH_ENABLED:false}
+    token: ${TINGJIAN_INTERNAL_SERVICE_TOKEN:}
 
 management:
   endpoints:

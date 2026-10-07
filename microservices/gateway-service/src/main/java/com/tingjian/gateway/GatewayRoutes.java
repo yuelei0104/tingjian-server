@@ -12,16 +12,8 @@ public class GatewayRoutes {
     RouteLocator tingjianRoutes(
             RouteLocatorBuilder builder,
             @Value("${tingjian.routes.legacy-http}") String legacyHttp,
-            @Value("${tingjian.routes.legacy-websocket}") String legacyWebSocket,
-            @Value("${tingjian.routes.ai-speech}") String aiSpeech,
-            @Value("${tingjian.routes.usage}") String usage) {
+            @Value("${tingjian.routes.legacy-websocket}") String legacyWebSocket) {
         return builder.routes()
-                .route("ai-speech-service", route -> route
-                        .path("/internal/ai/**")
-                        .uri(aiSpeech))
-                .route("usage-service", route -> route
-                        .path("/internal/usage/**")
-                        .uri(usage))
                 .route("legacy-websocket", route -> route
                         .path("/ws/**")
                         .uri(legacyWebSocket))

@@ -21,6 +21,11 @@ docker compose up -d --build
 docker compose ps
 ```
 
+Compose 会同时启动单体业务服务、用量服务、AI/语音服务和 8088 网关。对外联调统一使用
+`http://127.0.0.1:8088`；`8092`、`8093` 只在容器网络中开放。可以通过
+`http://127.0.0.1:8088/gateway/status` 和
+`http://127.0.0.1:8088/actuator/health` 检查网关。
+
 如果电脑上已有 `tingjian-mysql` 或 `tingjian-redis` 容器，请先继续使用现有开发方式，
 不要直接启动同名 Compose 服务。确认数据已经备份后再安排迁移。
 
@@ -58,8 +63,16 @@ TINGJIAN_ASR_PROVIDER=aliyun
 TINGJIAN_USAGE_SERVICE_ENABLED=true
 TINGJIAN_USAGE_SERVICE_URL=http://127.0.0.1:8093
 TINGJIAN_USAGE_FAIL_OPEN=true
+TINGJIAN_INTERNAL_AUTH_ENABLED=true
+TINGJIAN_INTERNAL_SERVICE_TOKEN=请替换为至少32位随机值
 ```
 
 AI 建议按成功的云端请求计量；本地模板或云端降级不会消耗 AI 额度。云端 ASR
 按 30 秒块预占，开始上传音频后确认，未上传音频则释放。迁移期默认 `fail-open=true`，
 用量服务短暂不可用时主业务仍可继续；生产监控与持久化完成后可切换为 `false`。
+
+`TINGJIAN_INTERNAL_SERVICE_TOKEN` 必须在单体、`usage-service` 和 `ai-speech-service`
+中保持一致，不要提交真实值。网关不转发 `/internal/**`，并会移除外部请求中伪造的
+内部令牌。服务默认绑定 `127.0.0.1`；容器部署时再通过
+`TINGJIAN_USAGE_BIND_ADDRESS=0.0.0.0` 和
+`TINGJIAN_AI_SPEECH_BIND_ADDRESS=0.0.0.0` 在容器网络内开放。

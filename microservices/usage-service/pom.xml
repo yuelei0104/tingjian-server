@@ -15,6 +15,11 @@
     <dependencies>
         <dependency>
             <groupId>com.tingjian</groupId>
+            <artifactId>internal-security</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.tingjian</groupId>
             <artifactId>common-contract</artifactId>
             <version>${project.version}</version>
         </dependency>

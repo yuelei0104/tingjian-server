@@ -4,8 +4,12 @@ spring:
 
 server:
   port: ${TINGJIAN_AI_SPEECH_PORT:8092}
+  address: ${TINGJIAN_AI_SPEECH_BIND_ADDRESS:127.0.0.1}
 
 tingjian:
+  internal-auth:
+    enabled: ${TINGJIAN_INTERNAL_AUTH_ENABLED:false}
+    token: ${TINGJIAN_INTERNAL_SERVICE_TOKEN:}
   ai:
     qwen:
       api-key: ${TINGJIAN_QWEN_API_KEY:}

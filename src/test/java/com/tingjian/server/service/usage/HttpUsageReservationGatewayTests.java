@@ -29,8 +29,13 @@ class HttpUsageReservationGatewayTests {
     void reservesCommitsAndReleasesThroughHttp() throws Exception {
         AtomicInteger commits = new AtomicInteger();
         AtomicInteger releases = new AtomicInteger();
+        AtomicInteger authenticatedRequests = new AtomicInteger();
         server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/internal/usage/reservations", exchange -> {
+            if ("test-internal-token".equals(
+                    exchange.getRequestHeaders().getFirst(HttpUsageReservationGateway.INTERNAL_TOKEN_HEADER))) {
+                authenticatedRequests.incrementAndGet();
+            }
             String path = exchange.getRequestURI().getPath();
             if (path.endsWith("/commit")) {
                 commits.incrementAndGet();
@@ -54,6 +59,7 @@ class HttpUsageReservationGatewayTests {
         assertEquals("reservation-1", reservation.id());
         assertEquals(1, commits.get());
         assertEquals(1, releases.get());
+        assertEquals(3, authenticatedRequests.get());
     }
 
     @Test
@@ -73,7 +79,8 @@ class HttpUsageReservationGatewayTests {
     @Test
     void failOpenAllowsRequestWhenUsageServiceIsUnavailable() {
         HttpUsageReservationGateway gateway = new HttpUsageReservationGateway(
-                "http://127.0.0.1:1", Duration.ofMillis(100), Duration.ofMillis(100), true);
+                "http://127.0.0.1:1", Duration.ofMillis(100), Duration.ofMillis(100),
+                "test-internal-token", true);
 
         UsageReservationGateway.Reservation reservation = gateway.reserve(
                 "user-1", UsageReservationGateway.Metric.AI_REQUESTS, 1, "ai:request-1");
@@ -84,7 +91,8 @@ class HttpUsageReservationGatewayTests {
     private HttpUsageReservationGateway gateway(boolean failOpen) {
         return new HttpUsageReservationGateway(
                 "http://127.0.0.1:" + server.getAddress().getPort(),
-                Duration.ofSeconds(1), Duration.ofSeconds(1), failOpen);
+                Duration.ofSeconds(1), Duration.ofSeconds(1),
+                "test-internal-token", failOpen);
     }
 
     private static String envelope(String status) {

@@ -6,12 +6,14 @@
 
 | 服务 | 默认端口 | 当前职责 |
 | --- | ---: | --- |
-| `gateway-service` | 8088 | 统一入口、HTTP/WebSocket 路由、请求链路 ID |
+| `gateway-service` | 8088 | 统一入口、鉴权边界、HTTP/WebSocket 路由、请求链路 ID |
 | `ai-speech-service` | 8092 | AI、ASR、TTS 提供商配置与能力边界 |
 | `usage-service` | 8093 | 套餐、日配额、用量预占/确认/释放和幂等处理 |
 | 根目录单体应用 | 8080 | 账号、会话、历史、个性化等现有稳定业务 |
 
-网关会把 `/api/**` 和 `/ws/**` 转发给现有单体，把 `/internal/ai/**` 与 `/internal/usage/**` 转发给新服务。因此 Android 后续只需要把 API 基地址改为网关地址，不需要一次性修改所有接口。
+网关只把公开的 `/api/**` 和 `/ws/**` 转发给现有单体。`/internal/**` 不再暴露在网关上，
+服务之间通过内网地址直连并使用 `X-Internal-Service-Token` 认证。因此 Android 只需要把
+API 基地址改为网关地址，不需要也不允许调用内部接口。
 
 ## 为什么先并行而不是直接拆库
 
@@ -49,8 +51,10 @@ java -jar .\microservices\usage-service\target\usage-service-0.1.0-SNAPSHOT.jar
 | --- | --- |
 | `TINGJIAN_LEGACY_HTTP_URL` | `http://127.0.0.1:8080` |
 | `TINGJIAN_LEGACY_WS_URL` | `ws://127.0.0.1:8080` |
-| `TINGJIAN_AI_SPEECH_URL` | `http://127.0.0.1:8092` |
-| `TINGJIAN_USAGE_URL` | `http://127.0.0.1:8093` |
+
+网关诊断地址为 `http://127.0.0.1:8088/gateway/status`。访问 `/api/v1/**` 或 `/ws/**`
+时必须携带 Bearer Token；真正的令牌有效性仍由账号服务校验。网关会删除客户端伪造的
+`X-Internal-Service-Token`，下游不可达时统一返回 `DOWNSTREAM_UNAVAILABLE`（HTTP 503）。
 
 ## 迁移顺序
 
@@ -59,7 +63,9 @@ java -jar .\microservices\usage-service\target\usage-service-0.1.0-SNAPSHOT.jar
 3. 将现有 AI/语音实现从单体迁入 `ai-speech-service`，对 Android 保持原有外部契约。
 4. 再拆账号与会话服务；到这一步才分别迁移数据库表和引入可靠事件/消息队列。
 
-> `usage-service` 当前使用进程内存储，只用于验证接口与业务规则。生产部署前应替换为 MySQL/Redis，并限制 `/internal/**` 只能由网关或服务网络访问。
+> `usage-service` 当前使用进程内存储，只用于验证接口与业务规则。生产部署前应替换为
+> MySQL/Redis。AI/语音与用量服务默认只绑定 `127.0.0.1`；容器部署时可改为内网地址，
+> 但不要将 8092/8093 直接映射到公网。
 
 根目录单体已经提供可开关的用量服务客户端。启动 `usage-service` 后设置：
 
@@ -67,6 +73,8 @@ java -jar .\microservices\usage-service\target\usage-service-0.1.0-SNAPSHOT.jar
 TINGJIAN_USAGE_SERVICE_ENABLED=true
 TINGJIAN_USAGE_SERVICE_URL=http://127.0.0.1:8093
 TINGJIAN_USAGE_FAIL_OPEN=true
+TINGJIAN_INTERNAL_AUTH_ENABLED=true
+TINGJIAN_INTERNAL_SERVICE_TOKEN=请替换为至少32位随机值
 ```
 
 AI 请求按次预占；云端成功后确认，本地降级时释放。云端 ASR 按 30 秒块预占，

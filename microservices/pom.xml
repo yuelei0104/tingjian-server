@@ -17,6 +17,7 @@
 
     <modules>
         <module>common-contract</module>
+        <module>internal-security</module>
         <module>gateway-service</module>
         <module>ai-speech-service</module>
         <module>usage-service</module>

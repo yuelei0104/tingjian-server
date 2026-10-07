@@ -17,6 +17,7 @@ import java.time.Duration;
 @Component
 @ConditionalOnProperty(name = "tingjian.microservices.usage.enabled", havingValue = "true")
 public class HttpUsageReservationGateway implements UsageReservationGateway {
+    static final String INTERNAL_TOKEN_HEADER = "X-Internal-Service-Token";
     private static final Logger log = LoggerFactory.getLogger(HttpUsageReservationGateway.class);
     private static final ParameterizedTypeReference<ApiEnvelope<ReservationResponse>> RESPONSE_TYPE =
             new ParameterizedTypeReference<>() {
@@ -29,16 +30,20 @@ public class HttpUsageReservationGateway implements UsageReservationGateway {
             @Value("${tingjian.microservices.usage.base-url:http://127.0.0.1:8093}") String baseUrl,
             @Value("${tingjian.microservices.usage.connect-timeout:1s}") Duration connectTimeout,
             @Value("${tingjian.microservices.usage.read-timeout:2s}") Duration readTimeout,
+            @Value("${tingjian.microservices.usage.internal-token:}") String internalToken,
             @Value("${tingjian.microservices.usage.fail-open:true}") boolean failOpen) {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(connectTimeout)
                 .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(readTimeout);
-        this.client = RestClient.builder()
+        RestClient.Builder clientBuilder = RestClient.builder()
                 .baseUrl(stripTrailingSlash(baseUrl))
-                .requestFactory(requestFactory)
-                .build();
+                .requestFactory(requestFactory);
+        if (internalToken != null && !internalToken.isBlank()) {
+            clientBuilder.defaultHeader(INTERNAL_TOKEN_HEADER, internalToken.strip());
+        }
+        this.client = clientBuilder.build();
         this.failOpen = failOpen;
     }
 
