@@ -1,6 +1,21 @@
 spring:
   application:
     name: tingjian-usage
+  datasource:
+    url: ${TINGJIAN_USAGE_DB_URL:jdbc:mysql://127.0.0.1:13306/tingjian?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=Asia/Shanghai}
+    username: ${TINGJIAN_USAGE_DB_USERNAME:tingjian}
+    password: ${TINGJIAN_USAGE_DB_PASSWORD:${TINGJIAN_DB_PASSWORD:}}
+  data:
+    redis:
+      host: ${TINGJIAN_USAGE_REDIS_HOST:127.0.0.1}
+      port: ${TINGJIAN_USAGE_REDIS_PORT:16379}
+      timeout: 1s
+      connect-timeout: 1s
+  flyway:
+    locations: classpath:db/migration
+    table: usage_flyway_schema_history
+    baseline-on-migrate: true
+    baseline-version: 0
 
 server:
   port: ${TINGJIAN_USAGE_PORT:8093}
@@ -10,6 +25,12 @@ tingjian:
   internal-auth:
     enabled: ${TINGJIAN_INTERNAL_AUTH_ENABLED:false}
     token: ${TINGJIAN_INTERNAL_SERVICE_TOKEN:}
+  usage:
+    reservation-ttl: ${TINGJIAN_USAGE_RESERVATION_TTL:5m}
+    expiry-scan-delay-ms: ${TINGJIAN_USAGE_EXPIRY_SCAN_DELAY_MS:60000}
+    redis-cache:
+      enabled: ${TINGJIAN_USAGE_REDIS_CACHE_ENABLED:true}
+      ttl: ${TINGJIAN_USAGE_REDIS_CACHE_TTL:2d}
 
 management:
   endpoints:

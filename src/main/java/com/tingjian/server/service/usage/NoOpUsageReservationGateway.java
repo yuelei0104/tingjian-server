@@ -3,6 +3,8 @@ package com.tingjian.server.service.usage;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 @Component
 @ConditionalOnProperty(
         name = "tingjian.microservices.usage.enabled",
@@ -22,5 +24,10 @@ public class NoOpUsageReservationGateway implements UsageReservationGateway {
     @Override
     public void release(Reservation reservation) {
         // Metering is disabled for local development.
+    }
+
+    @Override
+    public Optional<UsageSnapshot> summary(String userId) {
+        return Optional.empty();
     }
 }

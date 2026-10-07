@@ -74,8 +74,18 @@ services:
         SERVICE: usage-service
     container_name: tingjian-usage-service
     restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       TINGJIAN_USAGE_BIND_ADDRESS: 0.0.0.0
+      TINGJIAN_USAGE_DB_URL: jdbc:mysql://mysql:3306/tingjian?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=Asia/Shanghai
+      TINGJIAN_USAGE_DB_USERNAME: tingjian
+      TINGJIAN_USAGE_DB_PASSWORD: ${TINGJIAN_DB_PASSWORD}
+      TINGJIAN_USAGE_REDIS_HOST: redis
+      TINGJIAN_USAGE_REDIS_PORT: 6379
       TINGJIAN_INTERNAL_AUTH_ENABLED: "true"
       TINGJIAN_INTERNAL_SERVICE_TOKEN: ${TINGJIAN_INTERNAL_SERVICE_TOKEN:?TINGJIAN_INTERNAL_SERVICE_TOKEN is required}
     expose:

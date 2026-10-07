@@ -4,207 +4,240 @@ import com.tingjian.contract.PlanTier;
 import com.tingjian.contract.UsageMetric;
 import com.tingjian.contract.UsageReservationRequest;
 import com.tingjian.contract.UsageReservationResponse;
+import com.tingjian.contract.UsageReservationResponse.ReservationStatus;
 import com.tingjian.contract.UsageSummaryResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.EnumMap;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class UsageQuotaService {
     static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
+    private final UsageQuotaDao dao;
+    private final UsageIdempotencyIndex idempotencyIndex;
     private final Clock clock;
-    private final Map<String, PlanTier> plans = new HashMap<>();
-    private final Map<UserDayKey, Bucket> buckets = new HashMap<>();
-    private final Map<String, Reservation> reservationsById = new HashMap<>();
-    private final Map<IdempotencyKey, Reservation> reservationsByKey = new HashMap<>();
+    private final Duration reservationTtl;
 
-    public UsageQuotaService() {
-        this(Clock.system(BUSINESS_ZONE));
-    }
-
-    UsageQuotaService(Clock clock) {
+    public UsageQuotaService(
+            UsageQuotaDao dao,
+            UsageIdempotencyIndex idempotencyIndex,
+            Clock clock,
+            @Value("${tingjian.usage.reservation-ttl:5m}") Duration reservationTtl) {
+        this.dao = dao;
+        this.idempotencyIndex = idempotencyIndex;
         this.clock = clock;
+        this.reservationTtl = reservationTtl;
     }
 
-    public synchronized UsageReservationResponse reserve(UsageReservationRequest request) {
+    @Transactional
+    public UsageReservationResponse reserve(UsageReservationRequest request) {
         validate(request);
-        IdempotencyKey key = new IdempotencyKey(request.userId().strip(), request.idempotencyKey().strip());
-        Reservation existing = reservationsByKey.get(key);
-        if (existing != null) {
-            if (existing.metric != request.metric() || existing.amount != request.amount()) {
-                throw new UsageException("IDEMPOTENCY_CONFLICT", "同一幂等键不能用于不同的用量请求");
-            }
-            return response(existing);
-        }
-
-        LocalDate day = LocalDate.now(clock);
         String userId = request.userId().strip();
-        PlanTier plan = plans.getOrDefault(userId, PlanTier.FREE);
-        Bucket bucket = buckets.computeIfAbsent(new UserDayKey(userId, day), ignored -> new Bucket());
+        String idempotencyKey = request.idempotencyKey().strip();
+        LocalDate day = LocalDate.now(clock);
+        Instant now = clock.instant();
+        PlanTier plan = dao.lockPlan(userId);
+        dao.releaseExpired(userId, day, now);
+
+        Optional<UsageQuotaDao.ReservationRecord> existing = idempotencyIndex
+                .findReservationId(userId, idempotencyKey)
+                .flatMap(dao::findById)
+                .filter(reservation -> reservation.userId().equals(userId))
+                .or(() -> dao.findByIdempotency(userId, idempotencyKey));
+        if (existing.isPresent()) {
+            UsageQuotaDao.ReservationRecord reservation = existing.get();
+            if (reservation.status() == ReservationStatus.RESERVED
+                    && !reservation.expiresAt().isAfter(now)) {
+                dao.releaseExpired(userId, reservation.day(), now);
+                reservation = dao.findById(reservation.id()).orElseThrow();
+            }
+            ensureSameRequest(reservation, request);
+            idempotencyIndex.remember(userId, idempotencyKey, reservation.id());
+            return response(reservation, plan);
+        }
+
+        UsageQuotaDao.Bucket bucket = dao.lockBucket(userId, day, request.metric());
         long remaining = remaining(bucket, plan, request.metric());
-        UsageReservationResponse.ReservationStatus status = request.amount() <= remaining
-                ? UsageReservationResponse.ReservationStatus.RESERVED
-                : UsageReservationResponse.ReservationStatus.REJECTED;
-        Reservation reservation = new Reservation(
-                UUID.randomUUID().toString(), userId, day, request.metric(), request.amount(), status);
-        if (status == UsageReservationResponse.ReservationStatus.RESERVED) {
-            bucket.addReserved(request.metric(), request.amount());
+        ReservationStatus status = request.amount() <= remaining
+                ? ReservationStatus.RESERVED
+                : ReservationStatus.REJECTED;
+        UsageQuotaDao.ReservationRecord reservation = new UsageQuotaDao.ReservationRecord(
+                UUID.randomUUID().toString(), userId, day, request.metric(), request.amount(),
+                idempotencyKey, status, now.plus(reservationTtl));
+        dao.insertReservation(reservation);
+        if (status == ReservationStatus.RESERVED) {
+            dao.updateBucket(userId, day, request.metric(),
+                    new UsageQuotaDao.Bucket(
+                            bucket.used(), bucket.reserved() + request.amount()));
         }
-        reservationsById.put(reservation.id, reservation);
-        reservationsByKey.put(key, reservation);
-        return response(reservation);
+        idempotencyIndex.remember(userId, idempotencyKey, reservation.id());
+        return response(reservation, plan);
     }
 
-    public synchronized UsageReservationResponse commit(String reservationId) {
-        Reservation reservation = requiredReservation(reservationId);
-        if (reservation.status == UsageReservationResponse.ReservationStatus.COMMITTED) {
-            return response(reservation);
+    @Transactional
+    public UsageReservationResponse commit(String reservationId) {
+        UsageQuotaDao.ReservationRecord preview = requiredReservation(reservationId);
+        PlanTier plan = dao.lockPlan(preview.userId());
+        UsageQuotaDao.ReservationRecord reservation = dao.lockReservation(reservationId);
+        if (reservation.status() == ReservationStatus.COMMITTED) {
+            return response(reservation, plan);
         }
-        if (reservation.status != UsageReservationResponse.ReservationStatus.RESERVED) {
-            throw new UsageException("INVALID_RESERVATION_STATE", "只有已预占的用量可以确认");
+        if (reservation.status() != ReservationStatus.RESERVED) {
+            throw invalidState();
         }
-        Bucket bucket = requiredBucket(reservation);
-        bucket.addReserved(reservation.metric, -reservation.amount);
-        bucket.addUsed(reservation.metric, reservation.amount);
-        reservation.status = UsageReservationResponse.ReservationStatus.COMMITTED;
-        return response(reservation);
+        if (!reservation.expiresAt().isAfter(clock.instant())) {
+            UsageQuotaDao.Bucket expiredBucket = dao.lockBucket(
+                    reservation.userId(), reservation.day(), reservation.metric());
+            dao.updateBucket(reservation.userId(), reservation.day(), reservation.metric(),
+                    new UsageQuotaDao.Bucket(
+                            expiredBucket.used(),
+                            Math.max(0, expiredBucket.reserved() - reservation.amount())));
+            dao.updateReservationStatus(reservation.id(), ReservationStatus.RELEASED);
+            return response(withStatus(reservation, ReservationStatus.RELEASED), plan);
+        }
+
+        UsageQuotaDao.Bucket bucket = dao.lockBucket(
+                reservation.userId(), reservation.day(), reservation.metric());
+        dao.updateBucket(reservation.userId(), reservation.day(), reservation.metric(),
+                new UsageQuotaDao.Bucket(
+                        bucket.used() + reservation.amount(),
+                        Math.max(0, bucket.reserved() - reservation.amount())));
+        dao.updateReservationStatus(reservation.id(), ReservationStatus.COMMITTED);
+        return response(withStatus(reservation, ReservationStatus.COMMITTED), plan);
     }
 
-    public synchronized UsageReservationResponse release(String reservationId) {
-        Reservation reservation = requiredReservation(reservationId);
-        if (reservation.status == UsageReservationResponse.ReservationStatus.RELEASED) {
-            return response(reservation);
+    @Transactional
+    public UsageReservationResponse release(String reservationId) {
+        UsageQuotaDao.ReservationRecord preview = requiredReservation(reservationId);
+        PlanTier plan = dao.lockPlan(preview.userId());
+        UsageQuotaDao.ReservationRecord reservation = dao.lockReservation(reservationId);
+        if (reservation.status() == ReservationStatus.RELEASED) {
+            return response(reservation, plan);
         }
-        if (reservation.status != UsageReservationResponse.ReservationStatus.RESERVED) {
-            throw new UsageException("INVALID_RESERVATION_STATE", "只有已预占的用量可以释放");
+        if (reservation.status() != ReservationStatus.RESERVED) {
+            throw invalidState();
         }
-        requiredBucket(reservation).addReserved(reservation.metric, -reservation.amount);
-        reservation.status = UsageReservationResponse.ReservationStatus.RELEASED;
-        return response(reservation);
+        UsageQuotaDao.Bucket bucket = dao.lockBucket(
+                reservation.userId(), reservation.day(), reservation.metric());
+        dao.updateBucket(reservation.userId(), reservation.day(), reservation.metric(),
+                new UsageQuotaDao.Bucket(
+                        bucket.used(), Math.max(0, bucket.reserved() - reservation.amount())));
+        dao.updateReservationStatus(reservation.id(), ReservationStatus.RELEASED);
+        return response(withStatus(reservation, ReservationStatus.RELEASED), plan);
     }
 
-    public synchronized UsageSummaryResponse summary(String userId) {
+    @Transactional
+    public UsageSummaryResponse summary(String userId) {
+        String normalizedUserId = requireUser(userId);
+        LocalDate day = LocalDate.now(clock);
+        PlanTier plan = dao.lockPlan(normalizedUserId);
+        dao.releaseExpired(normalizedUserId, day, clock.instant());
+        Map<UsageMetric, UsageQuotaDao.Bucket> buckets = dao.buckets(normalizedUserId, day);
+        EnumMap<UsageMetric, UsageSummaryResponse.MetricUsage> metrics =
+                new EnumMap<>(UsageMetric.class);
+        for (UsageMetric metric : UsageMetric.values()) {
+            UsageQuotaDao.Bucket bucket = buckets.getOrDefault(
+                    metric, new UsageQuotaDao.Bucket(0, 0));
+            long limit = UsagePolicy.limit(plan, metric);
+            metrics.put(metric, new UsageSummaryResponse.MetricUsage(
+                    bucket.used(), bucket.reserved(), limit,
+                    Math.max(0, limit - bucket.used() - bucket.reserved())));
+        }
+        return new UsageSummaryResponse(
+                normalizedUserId, plan, day.plusDays(1), Map.copyOf(metrics));
+    }
+
+    @Transactional
+    public UsageSummaryResponse setPlan(String userId, PlanTier plan) {
+        String normalizedUserId = requireUser(userId);
+        if (plan == null) throw new UsageException("INVALID_PLAN", "套餐不能为空");
+        dao.lockPlan(normalizedUserId);
+        dao.updatePlan(normalizedUserId, plan);
+        return summary(normalizedUserId);
+    }
+
+    @Transactional
+    public int releaseExpiredReservations() {
+        Instant now = clock.instant();
+        int released = 0;
+        List<UsageQuotaDao.UserDay> userDays = dao.expiredUserDays(now, 100);
+        for (UsageQuotaDao.UserDay userDay : userDays) {
+            dao.lockPlan(userDay.userId());
+            released += dao.releaseExpired(userDay.userId(), userDay.day(), now);
+        }
+        return released;
+    }
+
+    private UsageReservationResponse response(
+            UsageQuotaDao.ReservationRecord reservation, PlanTier plan) {
+        UsageQuotaDao.Bucket bucket = dao.lockBucket(
+                reservation.userId(), reservation.day(), reservation.metric());
+        return new UsageReservationResponse(
+                reservation.id(), reservation.status(), reservation.metric(), reservation.amount(),
+                remaining(bucket, plan, reservation.metric()), reservation.day().plusDays(1));
+    }
+
+    private static UsageQuotaDao.ReservationRecord withStatus(
+            UsageQuotaDao.ReservationRecord reservation, ReservationStatus status) {
+        return new UsageQuotaDao.ReservationRecord(
+                reservation.id(), reservation.userId(), reservation.day(), reservation.metric(),
+                reservation.amount(), reservation.idempotencyKey(), status, reservation.expiresAt());
+    }
+
+    private static void ensureSameRequest(
+            UsageQuotaDao.ReservationRecord existing, UsageReservationRequest request) {
+        if (existing.metric() != request.metric() || existing.amount() != request.amount()) {
+            throw new UsageException(
+                    "IDEMPOTENCY_CONFLICT", "同一幂等键不能用于不同的用量请求");
+        }
+    }
+
+    private static long remaining(
+            UsageQuotaDao.Bucket bucket, PlanTier plan, UsageMetric metric) {
+        return Math.max(0,
+                UsagePolicy.limit(plan, metric) - bucket.used() - bucket.reserved());
+    }
+
+    private static String requireUser(String userId) {
         if (userId == null || userId.isBlank()) {
             throw new UsageException("INVALID_USER", "用户 ID 不能为空");
         }
-        String normalizedUserId = userId.strip();
-        LocalDate day = LocalDate.now(clock);
-        PlanTier plan = plans.getOrDefault(normalizedUserId, PlanTier.FREE);
-        Bucket bucket = buckets.computeIfAbsent(new UserDayKey(normalizedUserId, day), ignored -> new Bucket());
-        EnumMap<UsageMetric, UsageSummaryResponse.MetricUsage> metrics = new EnumMap<>(UsageMetric.class);
-        for (UsageMetric metric : UsageMetric.values()) {
-            long limit = UsagePolicy.limit(plan, metric);
-            long used = bucket.used(metric);
-            long reserved = bucket.reserved(metric);
-            metrics.put(metric, new UsageSummaryResponse.MetricUsage(
-                    used, reserved, limit, Math.max(0, limit - used - reserved)));
-        }
-        return new UsageSummaryResponse(normalizedUserId, plan, day.plusDays(1), Map.copyOf(metrics));
+        return userId.strip();
     }
 
-    public synchronized UsageSummaryResponse setPlan(String userId, PlanTier plan) {
-        if (userId == null || userId.isBlank() || plan == null) {
-            throw new UsageException("INVALID_PLAN", "用户 ID 和套餐不能为空");
-        }
-        plans.put(userId.strip(), plan);
-        return summary(userId);
+    private UsageQuotaDao.ReservationRecord requiredReservation(String reservationId) {
+        return dao.findById(reservationId).orElseThrow(() -> new UsageException(
+                "RESERVATION_NOT_FOUND", "用量预占记录不存在"));
     }
 
-    private void validate(UsageReservationRequest request) {
-        if (request == null || request.userId() == null || request.userId().isBlank()) {
-            throw new UsageException("INVALID_USER", "用户 ID 不能为空");
-        }
+    private static void validate(UsageReservationRequest request) {
+        if (request == null) throw new UsageException("INVALID_USER", "用户 ID 不能为空");
+        requireUser(request.userId());
         if (request.metric() == null || request.amount() <= 0) {
-            throw new UsageException("INVALID_AMOUNT", "用量类型不能为空且数量必须大于 0");
+            throw new UsageException(
+                    "INVALID_AMOUNT", "用量类型不能为空且数量必须大于 0");
         }
         if (request.idempotencyKey() == null || request.idempotencyKey().isBlank()
                 || request.idempotencyKey().length() > 128) {
-            throw new UsageException("INVALID_IDEMPOTENCY_KEY", "幂等键不能为空且长度不能超过 128");
+            throw new UsageException(
+                    "INVALID_IDEMPOTENCY_KEY", "幂等键不能为空且长度不能超过 128");
         }
     }
 
-    private Reservation requiredReservation(String reservationId) {
-        Reservation reservation = reservationsById.get(reservationId);
-        if (reservation == null) {
-            throw new UsageException("RESERVATION_NOT_FOUND", "用量预占记录不存在");
-        }
-        return reservation;
-    }
-
-    private Bucket requiredBucket(Reservation reservation) {
-        Bucket bucket = buckets.get(new UserDayKey(reservation.userId, reservation.day));
-        if (bucket == null) {
-            throw new UsageException("RESERVATION_EXPIRED", "用量预占记录已过期");
-        }
-        return bucket;
-    }
-
-    private UsageReservationResponse response(Reservation reservation) {
-        PlanTier plan = plans.getOrDefault(reservation.userId, PlanTier.FREE);
-        Bucket bucket = buckets.getOrDefault(new UserDayKey(reservation.userId, reservation.day), new Bucket());
-        return new UsageReservationResponse(
-                reservation.id,
-                reservation.status,
-                reservation.metric,
-                reservation.amount,
-                remaining(bucket, plan, reservation.metric),
-                reservation.day.plusDays(1));
-    }
-
-    private long remaining(Bucket bucket, PlanTier plan, UsageMetric metric) {
-        return Math.max(0, UsagePolicy.limit(plan, metric) - bucket.used(metric) - bucket.reserved(metric));
-    }
-
-    private record UserDayKey(String userId, LocalDate day) {
-    }
-
-    private record IdempotencyKey(String userId, String key) {
-    }
-
-    private static final class Bucket {
-        private final EnumMap<UsageMetric, Long> used = new EnumMap<>(UsageMetric.class);
-        private final EnumMap<UsageMetric, Long> reserved = new EnumMap<>(UsageMetric.class);
-
-        long used(UsageMetric metric) {
-            return used.getOrDefault(metric, 0L);
-        }
-
-        long reserved(UsageMetric metric) {
-            return reserved.getOrDefault(metric, 0L);
-        }
-
-        void addUsed(UsageMetric metric, long amount) {
-            used.put(metric, used(metric) + amount);
-        }
-
-        void addReserved(UsageMetric metric, long amount) {
-            reserved.put(metric, reserved(metric) + amount);
-        }
-    }
-
-    private static final class Reservation {
-        private final String id;
-        private final String userId;
-        private final LocalDate day;
-        private final UsageMetric metric;
-        private final long amount;
-        private UsageReservationResponse.ReservationStatus status;
-
-        private Reservation(String id, String userId, LocalDate day, UsageMetric metric, long amount,
-                            UsageReservationResponse.ReservationStatus status) {
-            this.id = id;
-            this.userId = userId;
-            this.day = day;
-            this.metric = metric;
-            this.amount = amount;
-            this.status = status;
-        }
+    private static UsageException invalidState() {
+        return new UsageException(
+                "INVALID_RESERVATION_STATE", "只有已预占的用量可以确认或释放");
     }
 }

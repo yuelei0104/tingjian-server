@@ -13,6 +13,10 @@ import org.springframework.web.client.RestClient;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.Optional;
 
 @Component
 @ConditionalOnProperty(name = "tingjian.microservices.usage.enabled", havingValue = "true")
@@ -20,6 +24,9 @@ public class HttpUsageReservationGateway implements UsageReservationGateway {
     static final String INTERNAL_TOKEN_HEADER = "X-Internal-Service-Token";
     private static final Logger log = LoggerFactory.getLogger(HttpUsageReservationGateway.class);
     private static final ParameterizedTypeReference<ApiEnvelope<ReservationResponse>> RESPONSE_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiEnvelope<SummaryResponse>> SUMMARY_TYPE =
             new ParameterizedTypeReference<>() {
             };
 
@@ -105,6 +112,31 @@ public class HttpUsageReservationGateway implements UsageReservationGateway {
         }
     }
 
+    @Override
+    public Optional<UsageSnapshot> summary(String userId) {
+        try {
+            ApiEnvelope<SummaryResponse> envelope = client.get()
+                    .uri("/internal/usage/users/{userId}", userId)
+                    .retrieve()
+                    .body(SUMMARY_TYPE);
+            if (envelope == null || !envelope.success() || envelope.data() == null) {
+                throw new IllegalStateException("usage service returned an invalid summary");
+            }
+            SummaryResponse response = envelope.data();
+            EnumMap<Metric, MetricUsage> metrics = new EnumMap<>(Metric.class);
+            response.metrics().forEach((metric, value) -> metrics.put(metric,
+                    new MetricUsage(value.used(), value.reserved(), value.limit(), value.remaining())));
+            return Optional.of(new UsageSnapshot(
+                    response.plan(), LocalDate.parse(response.resetDate()), Map.copyOf(metrics)));
+        } catch (RuntimeException exception) {
+            if (!failOpen) {
+                throw new BusinessException(ErrorCode.USAGE_SERVICE_UNAVAILABLE);
+            }
+            log.warn("Usage service summary unavailable; returning local usage only");
+            return Optional.empty();
+        }
+    }
+
     private static String stripTrailingSlash(String value) {
         String result = value.strip();
         while (result.endsWith("/")) result = result.substring(0, result.length() - 1);
@@ -131,6 +163,16 @@ public class HttpUsageReservationGateway implements UsageReservationGateway {
             long amount,
             long remaining,
             String resetDate) {
+    }
+
+    private record SummaryResponse(
+            String userId,
+            String plan,
+            String resetDate,
+            Map<Metric, MetricUsageResponse> metrics) {
+    }
+
+    private record MetricUsageResponse(long used, long reserved, long limit, long remaining) {
     }
 
     private enum ReservationStatus {

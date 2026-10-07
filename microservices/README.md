@@ -8,7 +8,7 @@
 | --- | ---: | --- |
 | `gateway-service` | 8088 | 统一入口、鉴权边界、HTTP/WebSocket 路由、请求链路 ID |
 | `ai-speech-service` | 8092 | AI、ASR、TTS 提供商配置与能力边界 |
-| `usage-service` | 8093 | 套餐、日配额、用量预占/确认/释放和幂等处理 |
+| `usage-service` | 8093 | 套餐、日配额、持久化预占/确认/释放和幂等处理 |
 | 根目录单体应用 | 8080 | 账号、会话、历史、个性化等现有稳定业务 |
 
 网关只把公开的 `/api/**` 和 `/ws/**` 转发给现有单体。`/internal/**` 不再暴露在网关上，
@@ -63,9 +63,12 @@ java -jar .\microservices\usage-service\target\usage-service-0.1.0-SNAPSHOT.jar
 3. 将现有 AI/语音实现从单体迁入 `ai-speech-service`，对 Android 保持原有外部契约。
 4. 再拆账号与会话服务；到这一步才分别迁移数据库表和引入可靠事件/消息队列。
 
-> `usage-service` 当前使用进程内存储，只用于验证接口与业务规则。生产部署前应替换为
-> MySQL/Redis。AI/语音与用量服务默认只绑定 `127.0.0.1`；容器部署时可改为内网地址，
-> 但不要将 8092/8093 直接映射到公网。
+`usage-service` 使用 MySQL 表 `usage_user_plan`、`usage_daily_bucket` 和
+`usage_reservation` 保存套餐、每日桶和预占记录；独立的
+`usage_flyway_schema_history` 不会与单体迁移记录冲突。Redis 只缓存幂等键到预占编号的
+索引，Redis 不可用时自动回退 MySQL 唯一约束，不会放宽额度。预占默认 5 分钟过期，
+后台任务会自动释放未确认额度。AI/语音与用量服务默认只绑定 `127.0.0.1`；容器部署
+时可改为内网地址，但不要将 8092/8093 直接映射到公网。
 
 根目录单体已经提供可开关的用量服务客户端。启动 `usage-service` 后设置：
 
@@ -76,6 +79,10 @@ TINGJIAN_USAGE_FAIL_OPEN=true
 TINGJIAN_INTERNAL_AUTH_ENABLED=true
 TINGJIAN_INTERNAL_SERVICE_TOKEN=请替换为至少32位随机值
 ```
+
+公开的 `GET /api/v1/usage` 会把单体月度会话统计与用量服务的每日
+`ASR_SECONDS`、`AI_REQUESTS`、`TTS_CHARACTERS` 合并返回。用量服务关闭或暂时不可用时，
+接口自动退回本地统计，Android 仍可正常显示基础用量。
 
 AI 请求按次预占；云端成功后确认，本地降级时释放。云端 ASR 按 30 秒块预占，
 上传过音频的块会确认，空块会释放。默认关闭，因此不启动微服务时原有开发流程不受影响。

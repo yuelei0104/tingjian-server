@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -86,6 +87,27 @@ class HttpUsageReservationGatewayTests {
                 "user-1", UsageReservationGateway.Metric.AI_REQUESTS, 1, "ai:request-1");
 
         assertTrue(!reservation.metered());
+    }
+
+    @Test
+    void loadsPersistentUsageSummaryThroughInternalApi() throws Exception {
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/internal/usage/users", exchange -> respond(exchange, 200, """
+                {"success":true,"data":{"userId":"user-1","plan":"FREE",
+                "resetDate":"2026-10-08","metrics":{"ASR_SECONDS":{"used":120,
+                "reserved":30,"limit":1800,"remaining":1650},"AI_REQUESTS":{"used":5,
+                "reserved":0,"limit":100,"remaining":95},"TTS_CHARACTERS":{"used":500,
+                "reserved":0,"limit":10000,"remaining":9500}}},"error":null,
+                "requestId":"test-request"}
+                """));
+        server.start();
+
+        Optional<UsageReservationGateway.UsageSnapshot> summary = gateway(false).summary("user-1");
+
+        assertTrue(summary.isPresent());
+        assertEquals("FREE", summary.orElseThrow().planCode());
+        assertEquals(1_650, summary.orElseThrow().metrics()
+                .get(UsageReservationGateway.Metric.ASR_SECONDS).remaining());
     }
 
     private HttpUsageReservationGateway gateway(boolean failOpen) {
