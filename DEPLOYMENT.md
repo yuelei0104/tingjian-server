@@ -43,16 +43,25 @@ Flyway 使用 `db/migration/V1__baseline.sql`。新数据库会创建完整结�
 - 日志不记录 Authorization、验证码、密码或请求正文。
 ## 云端 AI 与语音
 
-云服务默认关闭，因此缺少密钥不会影响应用启动。创建阿里云百炼 API Key 后再启用：
+云服务默认关闭，因此缺少密钥不会影响应用启动。单体直连模式仍可使用
+`DASHSCOPE_API_KEY` 与 `TINGJIAN_AI_PROVIDER=qwen`。推荐部署方式是让单体只调用内部
+AI 服务：
 
 ```env
-DASHSCOPE_API_KEY=replace-me
-TINGJIAN_AI_PROVIDER=qwen
+TINGJIAN_AI_SPEECH_SERVICE_ENABLED=true
+TINGJIAN_AI_SPEECH_SERVICE_URL=http://127.0.0.1:8092
+TINGJIAN_AI_PROVIDER=remote
+TINGJIAN_INSIGHT_PROVIDER=remote
+TINGJIAN_AI_MODEL_PROVIDER=qwen
+TINGJIAN_QWEN_API_KEY=replace-me
 TINGJIAN_ASR_PROVIDER=aliyun
 ```
 
 生产环境建议配置华北 2（北京）的业务空间专属地址，不要把密钥或业务空间 ID
 提交到源码。Android 会保留系统语音识别和系统 TTS 作为自动降级方案。
+`TINGJIAN_AI_MODEL_PROVIDER=local` 可在没有密钥时验证完整服务链路；本地降级不会消耗
+AI 云端额度。公开 Agent SSE 接口位于 `/api/v1/agent/chat/stream`，反向代理需要关闭
+响应缓冲并将读取超时设置为至少 60 秒。
 
 ## 微服务用量闭环
 

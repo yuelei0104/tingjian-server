@@ -47,6 +47,8 @@ services:
         condition: service_healthy
       usage-service:
         condition: service_started
+      ai-speech-service:
+        condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TINGJIAN_SERVER_PORT: 8080
@@ -62,6 +64,10 @@ services:
       TINGJIAN_USAGE_SERVICE_ENABLED: "true"
       TINGJIAN_USAGE_SERVICE_URL: http://usage-service:8093
       TINGJIAN_USAGE_FAIL_OPEN: ${TINGJIAN_USAGE_FAIL_OPEN:-true}
+      TINGJIAN_AI_SPEECH_SERVICE_ENABLED: "true"
+      TINGJIAN_AI_SPEECH_SERVICE_URL: http://ai-speech-service:8092
+      TINGJIAN_AI_PROVIDER: remote
+      TINGJIAN_INSIGHT_PROVIDER: remote
       TINGJIAN_INTERNAL_SERVICE_TOKEN: ${TINGJIAN_INTERNAL_SERVICE_TOKEN:?TINGJIAN_INTERNAL_SERVICE_TOKEN is required}
     ports:
       - "8080:8080"
@@ -101,6 +107,7 @@ services:
     restart: unless-stopped
     environment:
       TINGJIAN_AI_SPEECH_BIND_ADDRESS: 0.0.0.0
+      TINGJIAN_AI_MODEL_PROVIDER: ${TINGJIAN_AI_MODEL_PROVIDER:-local}
       TINGJIAN_INTERNAL_AUTH_ENABLED: "true"
       TINGJIAN_INTERNAL_SERVICE_TOKEN: ${TINGJIAN_INTERNAL_SERVICE_TOKEN:?TINGJIAN_INTERNAL_SERVICE_TOKEN is required}
       TINGJIAN_QWEN_API_KEY: ${TINGJIAN_QWEN_API_KEY:-}

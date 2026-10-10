@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class HistoryService {
+    private static final long PROVIDER_TIMEOUT_SECONDS = 20;
     private final HistoryDao historyDao;
     private final SessionService sessionService;
     private final ConversationInsightDao insightDao;
@@ -108,7 +109,7 @@ public class HistoryService {
         try {
             ConversationInsightResult result = CompletableFuture
                     .supplyAsync(() -> intelligenceProvider.analyze(input))
-                    .orTimeout(3, TimeUnit.SECONDS)
+                    .orTimeout(PROVIDER_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .join();
             if (result == null || result.summary() == null || result.summary().isBlank()) {
                 return LocalConversationIntelligenceProvider.fallback(input);

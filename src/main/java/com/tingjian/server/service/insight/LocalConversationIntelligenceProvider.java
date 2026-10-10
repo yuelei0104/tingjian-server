@@ -1,6 +1,7 @@
 package com.tingjian.server.service.insight;
 
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -14,6 +15,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Component
+@ConditionalOnProperty(
+        name = "tingjian.insight.provider", havingValue = "local", matchIfMissing = true)
 public class LocalConversationIntelligenceProvider implements ConversationIntelligenceProvider {
     private static final Pattern ACTION_PATTERN = Pattern.compile(
             "(?i).*(请|需要|记得|安排|提交|完成|确认|提醒|明天|后天|下周|todo|must|need to|please).*"

@@ -1,6 +1,11 @@
 spring:
   application:
     name: tingjian-gateway
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 3000
+        response-timeout: 60s
 
 server:
   port: ${TINGJIAN_GATEWAY_PORT:8088}

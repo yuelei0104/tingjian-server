@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class AiSuggestionService {
-    private static final long PROVIDER_TIMEOUT_SECONDS = 3;
+    private static final long PROVIDER_TIMEOUT_SECONDS = 20;
 
     private final AiSuggestionDao dao;
     private final SessionDao sessionDao;

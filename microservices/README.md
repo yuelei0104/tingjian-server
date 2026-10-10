@@ -7,7 +7,7 @@
 | 服务 | 默认端口 | 当前职责 |
 | --- | ---: | --- |
 | `gateway-service` | 8088 | 统一入口、鉴权边界、HTTP/WebSocket 路由、请求链路 ID |
-| `ai-speech-service` | 8092 | AI、ASR、TTS 提供商配置与能力边界 |
+| `ai-speech-service` | 8092 | 单 Agent 编排、Qwen 多轮回复/流式输出、会话总结及语音提供商边界 |
 | `usage-service` | 8093 | 套餐、日配额、持久化预占/确认/释放和幂等处理 |
 | 根目录单体应用 | 8080 | 账号、会话、历史、个性化等现有稳定业务 |
 
@@ -60,7 +60,8 @@ java -jar .\microservices\usage-service\target\usage-service-0.1.0-SNAPSHOT.jar
 
 1. Android 真机只切换到网关 8088，验证旧接口和 WebSocket 都可透传。
 2. 在调用云端 ASR/AI 前向 `usage-service` 预占用量，成功后确认，失败时释放。
-3. 将现有 AI/语音实现从单体迁入 `ai-speech-service`，对 Android 保持原有外部契约。
+3. AI 表达、多轮 Agent 和大模型会话总结由 `ai-speech-service` 执行；单体负责用户鉴权、
+   数据隔离、只读工具快照和用量预占，对 Android 保持公开契约稳定。
 4. 再拆账号与会话服务；到这一步才分别迁移数据库表和引入可靠事件/消息队列。
 
 `usage-service` 使用 MySQL 表 `usage_user_plan`、`usage_daily_bucket` 和
@@ -86,3 +87,26 @@ TINGJIAN_INTERNAL_SERVICE_TOKEN=请替换为至少32位随机值
 
 AI 请求按次预占；云端成功后确认，本地降级时释放。云端 ASR 按 30 秒块预占，
 上传过音频的块会确认，空块会释放。默认关闭，因此不启动微服务时原有开发流程不受影响。
+
+## 单 Agent 与流式回复
+
+公开接口仍由单体提供：`POST /api/v1/agent/chat` 返回完整回复，
+`POST /api/v1/agent/chat/stream` 返回 SSE 事件 `meta`、`delta`、`reset`、`done`。
+单体校验 Bearer Token 和 `sessionId` 归属后，只向内部服务发送当前账号的数据。
+第一版只读工具包括术语表、常用语、最近历史和用量；Agent 不能直接访问数据库，也不能
+声称已经执行写操作。云端中断时会发送 `reset` 并切换本地回答，Android 可以清空不完整
+片段后继续显示。
+
+启用内部 AI 链路：
+
+```env
+TINGJIAN_AI_SPEECH_SERVICE_ENABLED=true
+TINGJIAN_AI_SPEECH_SERVICE_URL=http://127.0.0.1:8092
+TINGJIAN_AI_PROVIDER=remote
+TINGJIAN_INSIGHT_PROVIDER=remote
+TINGJIAN_AI_MODEL_PROVIDER=qwen
+TINGJIAN_QWEN_API_KEY=replace-me
+TINGJIAN_INTERNAL_SERVICE_TOKEN=请替换为至少32位随机值
+```
+
+不配置密钥时把 `TINGJIAN_AI_MODEL_PROVIDER` 保持为 `local`，服务仍可启动并返回安全降级结果。

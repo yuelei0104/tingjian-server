@@ -11,9 +11,13 @@ tingjian:
     enabled: ${TINGJIAN_INTERNAL_AUTH_ENABLED:false}
     token: ${TINGJIAN_INTERNAL_SERVICE_TOKEN:}
   ai:
+    provider: ${TINGJIAN_AI_MODEL_PROVIDER:local}
     qwen:
       api-key: ${TINGJIAN_QWEN_API_KEY:}
+      base-url: ${TINGJIAN_QWEN_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
       model: ${TINGJIAN_QWEN_MODEL:qwen-plus}
+      connect-timeout: ${TINGJIAN_QWEN_CONNECT_TIMEOUT:2s}
+      read-timeout: ${TINGJIAN_QWEN_READ_TIMEOUT:20s}
   speech:
     asr:
       api-key: ${TINGJIAN_ASR_API_KEY:${TINGJIAN_QWEN_API_KEY:}}
